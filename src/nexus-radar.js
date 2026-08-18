@@ -29,31 +29,51 @@ if (!API_KEY) {
   process.exit(1);
 }
 
-const BRIGHT_BASE = "https://api.brightdata.com";
+const BRIGHT_BASE = "https://api.brightdata.com/api/v1";
 
 // ---------------------------------------------------------------------------
 // 1. RAW FETCH — calls the Bright Data Scraper API
 // ---------------------------------------------------------------------------
 
-async function fetchScrape(collectorId, url) {
-  const res = await fetch(`${BRIGHT_BASE}/scraper/v1`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${API_KEY}`,
-    },
-    body: JSON.stringify({
-      collector_id: collectorId,
-      url,
-    }),
-  });
+async function fetchScrape(collectorId, url, maxRetries = 4) {
+  let lastError;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const res = await fetch(`${BRIGHT_BASE}/scraper`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${API_KEY}`,
+        },
+        body: JSON.stringify({ collector_id: collectorId, url }),
+      });
 
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Bright Data scrape failed (${res.status}): ${body}`);
+      if (res.status === 429) {
+        lastError = new Error(`Rate limited (429) — retry ${attempt + 1}/${maxRetries}`);
+        if (attempt < maxRetries) {
+          const jitter = Math.random() * 500;
+          const wait = Math.min(2 ** attempt * 1000 + jitter, 30000);
+          console.warn(`⚠️  Rate limited, waiting ${Math.round(wait / 1000)}s before retry ${attempt + 1}/${maxRetries}`);
+          await new Promise((r) => setTimeout(r, wait));
+          continue;
+        }
+      }
+
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        throw new Error(`Bright Data scrape failed (${res.status}): ${body}`);
+      }
+
+      return res.json();
+    } catch (err) {
+      if (err.message.includes("429") && attempt < maxRetries) {
+        lastError = err;
+        continue;
+      }
+      throw err;
+    }
   }
-
-  return res.json();
+  throw lastError || new Error("Unknown fetch error");
 }
 
 // ---------------------------------------------------------------------------
@@ -97,13 +117,33 @@ function parsePostedDate(raw) {
   // Bright Data often returns human-readable like "2 months", "3 days ago"
   if (!raw) return null;
   const lower = raw.toLowerCase();
+
+  // "X days ago" → absolute timestamp
   const dayMatch = lower.match(/(\d+)\s*day/i);
+  if (dayMatch) {
+    const daysAgo = Number(dayMatch[1]);
+    return Date.now() - daysAgo * 86400000;
+  }
+
+  // "X months ago" → approximate absolute timestamp
   const monthMatch = lower.match(/(\d+)\s*month/i);
-  if (dayMatch) return ONE_MONTH_AGO.getTime() - Number(dayMatch[1]) * 86400000;
-  if (monthMatch) return ONE_MONTH_AGO.getTime() - Number(monthMatch[1]) * 30 * 86400000;
-  // try ISO date
+  if (monthMatch) {
+    const monthsAgo = Number(monthMatch[1]);
+    return Date.now() - monthsAgo * 30 * 86400000;
+  }
+
+  // "X hours ago" → approximate
+  const hourMatch = lower.match(/(\d+)\s*hour/i);
+  if (hourMatch) {
+    const hoursAgo = Number(hourMatch[1]);
+    return Date.now() - hoursAgo * 3600000;
+  }
+
+  // try ISO date / parseable date string
   const iso = new Date(raw);
-  return isNaN(iso.getTime()) ? null : iso.getTime();
+  if (!isNaN(iso.getTime())) return iso.getTime();
+
+  return null;
 }
 
 /**
