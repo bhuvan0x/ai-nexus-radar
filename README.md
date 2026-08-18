@@ -224,7 +224,3 @@ node src/health-monitor.js scrape-output.json
 - **Self-healing is the differentiator.** The `bdata scraper heal` command rewrites the scraper logic in-place using plain-language prompts. If Y Combinator changes their CSS classes, we don't touch code — we just re-run the heal with the same prompt.
 - **The Pulse Score is the hook.** For the "Suit-Up" track demo, the Pulse Score gives judges a single number that captures whether the AI hiring wave is surging or calm.
 - **Health Monitor closes the loop.** It's the "always-on" reliability layer — a cron job could run it every hour and auto-trigger a heal if gaps are detected.
-
----
-
-**Good luck at the hackathon — let's win that DGX Spark! 🚀**
