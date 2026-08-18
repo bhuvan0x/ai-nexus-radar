@@ -128,7 +128,7 @@ npx -p @brightdata/cli bdata scraper create \
 
 ```bash
 # From the project root
-export BRIGHTDATA_API_KEY="de2aa9a8-b73f-4f85-bf4f-52ceae5d9c59"
+export BRIGHTDATA_API_KEY="<your-key-here>"
 node src/nexus-radar.js
 ```
 
