@@ -1,0 +1,24 @@
+# Environment
+.env
+.env.*
+*.key
+BRIGHTDATA_API_KEY
+
+# Build/output
+node_modules/
+*.log
+.DS_Store
+
+# Sensitive workspace files
+uploads/
+*.pem
+*.p12
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# npm cache
+.npm/
