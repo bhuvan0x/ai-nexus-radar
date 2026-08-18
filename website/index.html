@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI-Nexus Radar — Self-Healing Scraper System</title>
+  <meta name="description" content="Monitoring Y Combinator's Job Board for emerging AI & tech trends via Bright Data's self-healing scraper system.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- ===== ANIMATED BACKGROUND ===== -->
+  <canvas id="bg-canvas"></canvas>
+
+  <!-- ===== NAV ===== -->
+  <nav class="navbar">
+    <div class="nav-brand">
+      <span class="nav-icon">🌊</span>
+      <span class="nav-title">AI-Nexus <span class="highlight">Radar</span></span>
+    </div>
+    <div class="nav-links">
+      <a href="#pulse" class="nav-link">Pulse</a>
+      <a href="#jobs" class="nav-link">Jobs Feed</a>
+      <a href="#architecture" class="nav-link">Architecture</a>
+      <a href="#self-heal" class="nav-link">Self-Heal</a>
+      <a href="#health" class="nav-link">Health</a>
+      <a href="#about" class="nav-link">About</a>
+    </div>
+    <div class="nav-status">
+      <span class="status-dot live"></span>
+      <span class="status-text">Collector Live</span>
+    </div>
+  </nav>
+
+  <!-- ===== HERO ===== -->
+  <section class="hero">
+    <div class="hero-content">
+      <span class="hero-badge">⚡ Into the Scrape-Verse Hackathon</span>
+      <h1 class="hero-title">
+        AI-Nexus
+        <span class="hero-accent">Radar</span>
+      </h1>
+      <p class="hero-sub">
+        A <strong class="text-accent">self-healing</strong> web scraper that monitors
+        <a href="https://www.ycombinator.com/jobs" target="_blank" class="hero-link">Y Combinator's Job Board</a>
+        to extract emerging tech trends, salary data, and AI hiring signals — in real time.
+      </p>
+      <div class="hero-actions">
+        <a href="https://github.com/bhuvan0x/ai-nexus-radar" target="_blank" class="btn btn-primary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.29 3.495.99-.21-1.29-.75-2.385-1.47-2.91-.69-.54-1.62-.435-2.04.02-.48.405-.69 1.23-.69 2.04 0 1.56.81 2.805 1.845 3.495.345.195.69.45.915.78.225.33.345.75.345 1.2 0 .825-.015 1.5-.015 2.235 0 .375.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          View on GitHub
+        </a>
+        <a href="#pulse" class="btn btn-secondary">Explore the Radar</a>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="hero-card">
+        <div class="pulse-ring">
+          <svg class="pulse-gauge" viewBox="0 0 200 200">
+            <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="12"/>
+            <circle cx="100" cy="100" r="85" fill="none" stroke="url(#pulseGrad)" stroke-width="12"
+              stroke-linecap="round" stroke-dasharray="534.07" id="pulse-arc" stroke-dashoffset="160"/>
+          </svg>
+          <div class="pulse-center">
+            <span class="pulse-value" id="pulse-score">72</span>
+            <span class="pulse-unit">/100</span>
+            <span class="pulse-label" id="pulse-level">HIGH</span>
+          </div>
+        </div>
+        <div class="pulse-meta">
+          <div class="meta-item">
+            <span class="meta-label">AI Density</span>
+            <div class="meta-bar"><div class="meta-fill ai" style="width:60%"></div></div>
+            <span class="meta-val">60%</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Salary Signal</span>
+            <div class="meta-bar"><div class="meta-fill salary" style="width:20%"></div></div>
+            <span class="meta-val">20%</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Freshness</span>
+            <div class="meta-bar"><div class="meta-fill fresh" style="width:20%"></div></div>
+            <span class="meta-val">20%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== PULSE DETAIL ===== -->
+  <section id="pulse" class="section">
+    <div class="section-header">
+      <span class="section-tag">Live Metrics</span>
+      <h2 class="section-title">Sentiment <span class="highlight">Pulse</span> Engine</h2>
+      <p class="section-desc">The Pulse Score combines three signals into a single 0–100 metric that tells you whether the AI hiring wave is surging or calm.</p>
+    </div>
+    <div class="pulse-grid">
+      <div class="pulse-card">
+        <div class="card-icon ai-icon">🤖</div>
+        <div class="card-body">
+          <div class="card-metric">
+            <span class="metric-val" id="ai-density-val">60.0</span>
+            <span class="metric-unit">%</span>
+          </div>
+          <div class="card-label">AI Density</div>
+          <p class="card-desc">% of postings with AI/ML tags — <span class="text-muted">primary signal (60% weight)</span></p>
+          <div class="mini-bar"><div class="mini-fill ai" style="width:60%"></div></div>
+        </div>
+      </div>
+      <div class="pulse-card">
+        <div class="card-icon salary-icon">💰</div>
+        <div class="card-body">
+          <div class="card-metric">
+            <span class="metric-val" id="salary-val">20.0</span>
+            <span class="metric-unit">%</span>
+          </div>
+          <div class="card-label">Salary Signal</div>
+          <p class="card-desc">% of postings exposing a salary range — <span class="text-muted">20% weight</span></p>
+          <div class="mini-bar"><div class="mini-fill salary" style="width:20%"></div></div>
+        </div>
+      </div>
+      <div class="pulse-card">
+        <div class="card-icon fresh-icon">🕐</div>
+        <div class="card-body">
+          <div class="card-metric">
+            <span class="metric-val" id="freshness-val">20.0</span>
+            <span class="metric-unit">%</span>
+          </div>
+          <div class="card-label">Freshness</div>
+          <p class="card-desc">% of postings from the last 30 days — <span class="text-muted">20% weight</span></p>
+          <div class="mini-bar"><div class="mini-fill fresh" style="width:20%"></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== JOBS FEED ===== -->
+  <section id="jobs" class="section">
+    <div class="section-header">
+      <span class="section-tag">Latest Scrapes</span>
+      <h2 class="section-title">Jobs <span class="highlight">Feed</span></h2>
+      <p class="section-desc">Real-time job postings scraped from Y Combinator. AI-tagged postings are highlighted.</p>
+    </div>
+    <div class="jobs-table-wrapper">
+      <table class="jobs-table" id="jobs-table">
+        <thead>
+          <tr>
+            <th>Company</th>
+            <th>Job Title</th>
+            <th>Tech Stack</th>
+            <th>Salary Range</th>
+            <th>Posted</th>
+            <th>AI Flag</th>
+          </tr>
+        </thead>
+        <tbody id="jobs-tbody">
+          <!-- populated by JS -->
+        </tbody>
+      </table>
+    </div>
+    <div class="jobs-empty" id="jobs-empty" style="display:none">
+      <div class="empty-state">
+        <span class="empty-icon">📡</span>
+        <p>No jobs scraped yet. Run the collector to populate.</p>
+      </div>
+    </div>
+    <div class="jobs-controls">
+      <button class="btn btn-outline" id="refresh-jobs">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.66 4.66A9 9 0 0020.49 15"/></svg>
+        Refresh from Collector
+      </button>
+    </div>
+  </section>
+
+  <!-- ===== ARCHITECTURE ===== -->
+  <section id="architecture" class="section">
+    <div class="section-header">
+      <span class="section-tag">System Design</span>
+      <h2 class="section-title">Architecture</h2>
+      <p class="section-desc">How the AI-Nexus Radar flows from the YC Jobs page to the dashboard.</p>
+    </div>
+    <div class="arch-diagram">
+      <div class="arch-layer">
+        <div class="arch-node arch-source">
+          <div class="arch-node-icon">🌐</div>
+          <div class="arch-node-label">Y Combinator<br>Jobs Board</div>
+          <div class="arch-node-sub">https://www.ycombinator.com/jobs</div>
+        </div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node arch-collector">
+          <div class="arch-node-icon">🕸️</div>
+          <div class="arch-node-label">Bright Data<br>Collector</div>
+          <div class="arch-node-sub"><code>c_msyndhlihcuensmoe</code></div>
+          <div class="arch-perms">
+            <span class="perm-tag">company_name</span>
+            <span class="perm-tag">job_title</span>
+            <span class="perm-tag">salary_range</span>
+            <span class="perm-tag">tech_stack_tags</span>
+            <span class="perm-tag">posted_date</span>
+          </div>
+        </div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node arch-engine">
+          <div class="arch-node-icon">⚙️</div>
+          <div class="arch-node-label">Pulse<br>Engine</div>
+          <div class="arch-node-sub">nexus-radar.js</div>
+          <div class="arch-formula">
+            <code>AI×0.60 + Salary×0.20 + Freshness×0.20</code>
+          </div>
+        </div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node arch-dashboard">
+          <div class="arch-node-icon">📊</div>
+          <div class="arch-node-label">AI-Nexus<br>Dashboard</div>
+          <div class="arch-node-sub">This site ←</div>
+        </div>
+      </div>
+      <div class="arch-note">
+        <span class="arch-note-icon">🔄</span>
+        <span class="arch-note-text">The Self-Heal Loop watches the collector continuously. If any field goes empty, it triggers an automatic <code>bdata scraper heal</code> to rewrite the scraper logic — no CSS changes needed.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== SELF-HEAL ===== -->
+  <section id="self-heal" class="section">
+    <div class="section-header">
+      <span class="section-tag">Reliability</span>
+      <h2 class="section-title">Self-<span class="highlight">Healing</span> Loop</h2>
+      <p class="section-desc">The differentiator. When YC changes their HTML, the scraper rewrites itself using plain-language prompts — no manual CSS updates required.</p>
+    </div>
+    <div class="heal-grid">
+      <div class="heal-card">
+        <div class="heal-step">
+          <span class="step-num">1</span>
+          <div class="step-content">
+            <div class="step-title">Detect Gap</div>
+            <div class="step-desc">Health Monitor finds empty <code>salary_range</code> across 5/5 postings</div>
+          </div>
+        </div>
+        <div class="heal-arrow">↓</div>
+        <div class="heal-step">
+          <span class="step-num">2</span>
+          <div class="step-content">
+            <div class="step-title">Trigger Heal</div>
+            <div class="step-desc">Run <code>bdata scraper heal</code> with plain-language prompt</div>
+          </div>
+        </div>
+        <div class="heal-arrow">↓</div>
+        <div class="heal-step">
+          <span class="step-num">3</span>
+          <div class="step-content">
+            <div class="step-title">Preview Result</div>
+            <div class="step-desc">AI rewrites the scraper logic, shows preview with all 5 fields</div>
+          </div>
+        </div>
+        <div class="heal-arrow">↓</div>
+        <div class="heal-step">
+          <span class="step-num">4</span>
+          <div class="step-content">
+            <div class="step-title">Approve & Verify</div>
+            <div class="step-desc">One command: <code>bdata scraper approve c_msyndhlihcuensmoe</code></div>
+          </div>
+        </div>
+      </div>
+      <div class="heal-demo">
+        <div class="demo-header">🔧 Self-Heal Command</div>
+        <pre class="demo-code" id="heal-command-display">npx -p @brightdata/cli bdata scraper heal \
+  c_msyndhlihcuensmoe \
+  "Extend the existing scraper to also extract:
+   1) company_name — the name of the company
+   2) salary_range — any salary or equity info
+   3) tech_stack_tags — list of technologies
+   4) posted_date — when the job was posted" \
+  --pretty --json --timeout 600</pre>
+        <button class="btn btn-outline copy-btn" id="copy-heal-cmd">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+          Copy Command
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== HEALTH MONITOR ===== -->
+  <section id="health" class="section">
+    <div class="section-header">
+      <span class="section-tag">Always-On</span>
+      <h2 class="section-title">Health <span class="highlight">Monitor</span></h2>
+      <p class="section-desc">Scans scraped output for empty fields. When a gap is detected, it prints the exact self-heal CLI command to fix it.</p>
+    </div>
+    <div class="health-status" id="health-status">
+      <div class="health-ring">
+        <svg viewBox="0 0 120 120">
+          <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="8"/>
+          <circle cx="60" cy="60" r="52" fill="none" stroke="url(#healthGrad)" stroke-width="8"
+            stroke-linecap="round" stroke-dasharray="326.73" id="health-arc" stroke-dashoffset="65"/>
+        </svg>
+        <div class="health-center">
+          <span class="health-value" id="health-score">80</span>
+          <span class="health-unit">%</span>
+        </div>
+      </div>
+      <div class="health-details">
+        <div class="health-row">
+          <span class="health-field">Company Name</span>
+          <span class="health-status-badge healthy">✅ Healthy</span>
+        </div>
+        <div class="health-row">
+          <span class="health-field">Job Title</span>
+          <span class="health-status-badge healthy">✅ Healthy</span>
+        </div>
+        <div class="health-row">
+          <span class="health-field">Salary Range</span>
+          <span class="health-status-badge warning">⚠️ Needs Attention</span>
+        </div>
+        <div class="health-row">
+          <span class="health-field">Tech Stack Tags</span>
+          <span class="health-status-badge warning">⚠️ Needs Attention</span>
+        </div>
+        <div class="health-row">
+          <span class="health-field">Posted Date</span>
+          <span class="health-status-badge healthy">✅ Healthy</span>
+        </div>
+      </div>
+    </div>
+    <div class="health-recommendation" id="health-rec">
+      <div class="rec-header">🚨 <span>Recommended Self-Heal Commands</span></div>
+      <div class="rec-commands" id="rec-commands">
+        <!-- populated by JS -->
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== ABOUT / TEAM ===== -->
+  <section id="about" class="section">
+    <div class="section-header">
+      <span class="section-tag">The Mission</span>
+      <h2 class="section-title">About <span class="highlight">AI-Nexus Radar</span></h2>
+    </div>
+    <div class="about-grid">
+      <div class="about-card">
+        <div class="about-icon">🎯</div>
+        <div class="about-body">
+          <h3 class="about-title">The Mission</h3>
+          <p>Track the pulse of AI and emerging-tech hiring from Y Combinator's job board. The self-healing scraper survives site changes automatically — so the Radar never goes dark.</p>
+        </div>
+      </div>
+      <div class="about-card">
+        <div class="about-icon">🏆</div>
+        <div class="about-body">
+          <h3 class="about-title">Hackathon Track</h3>
+          <ul class="about-list">
+            <li><strong>Spider-Sense (Clean Code):</strong> <span class="text-muted">"A stranger could pick it up on Monday"</span></li>
+            <li><strong>Suit-Up Track:</strong> <span class="text-muted">Pulse Score for the dashboard</span></li>
+            <li><strong>NVIDIA DGX Spark:</strong> <span class="text-muted">The prize we're going for 🚀</span></li>
+          </ul>
+        </div>
+      </div>
+      <div class="about-card">
+        <div class="about-icon">🔑</div>
+        <div class="about-body">
+          <h3 class="about-title">Key Artifacts</h3>
+          <ul class="about-list">
+            <li><strong>Collector ID:</strong> <code>c_msyndhlihcuensmoe</code></li>
+            <li><strong>Target URL:</strong> <code>ycombinator.com/jobs</code></li>
+            <li><strong>CLI Version:</strong> <code>0.3.5</code></li>
+            <li><strong>API:</strong> Bright Data Web Unlocker / Browser API</li>
+          </ul>
+        </div>
+      </div>
+      <div class="about-card">
+        <div class="about-icon">📂</div>
+        <div class="about-body">
+          <h3 class="about-title">Project Files</h3>
+          <ul class="about-list">
+            <li><code>src/nexus-radar.js</code> — Pulse engine + collector client</li>
+            <li><code>src/health-monitor.js</code> — Gap detector + self-heal suggester</li>
+            <li><code>README.md</code> — Full project documentation</li>
+          </ul>
+          <a href="https://github.com/bhuvan0x/ai-nexus-radar" target="_blank" class="btn btn-outline btn-sm">Browse Repository</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FOOTER ===== -->
+  <footer class="footer">
+    <div class="footer-inner">
+      <div class="footer-brand">🌊 AI-Nexus Radar</div>
+      <div class="footer-links">
+        <a href="https://github.com/bhuvan0x/ai-nexus-radar" target="_blank">GitHub</a>
+        <a href="https://brightdata.com" target="_blank">Bright Data</a>
+        <a href="https://www.ycombinator.com/jobs" target="_blank">YC Jobs</a>
+      </div>
+      <div class="footer-copy">
+        Into the Scrape-Verse Hackathon · Built with Bright Data CLI v0.3.5
+      </div>
+    </div>
+  </footer>
+
+  <!-- Toast -->
+  <div class="toast" id="toast" style="display:none">📋 Copied to clipboard!</div>
+
+  <script src="app.js"></script>
+</body>
+</html>
