@@ -1,423 +1,132 @@
-/* ============================================================
-   AI-Nexus Radar — Website Logic
-   Interactive dashboard, animations, data display
-   ============================================================ */
+/* AI-Nexus Radar — Flexible Scraper Studio */
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const state = { fields: [
+    ['title','The primary title or name for each item'],
+    ['url','The canonical URL for each item'],
+    ['description','The main description or summary'],
+    ['price','Price or compensation when present']
+  ], mode: 'run', rows: [], columns: [], collectorId: '', lastRun: null };
 
-/* ---------- Background Canvas Animation ---------- */
-(function initCanvas() {
-  const canvas = document.getElementById('bg-canvas');
-  const ctx = canvas.getContext('2d');
-  let particles = [];
-  let mouseX = 0, mouseY = 0;
-
-  function resize() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-  }
-
-  class Particle {
-    constructor() {
-      this.reset();
-    }
-    reset() {
-      this.x = Math.random() * canvas.width;
-      this.y = Math.random() * canvas.height;
-      this.size = Math.random() * 1.5 + 0.5;
-      this.speedX = (Math.random() - 0.5) * 0.3;
-      this.speedY = (Math.random() - 0.5) * 0.3;
-      this.opacity = Math.random() * 0.5 + 0.1;
-      // Tint: mostly cyan/purple
-      const t = Math.random();
-      this.color = t < 0.6
-        ? `rgba(0, 255, 200, ${this.opacity})`
-        : `rgba(139, 92, 246, ${this.opacity})`;
-    }
-    update() {
-      this.x += this.speedX;
-      this.y += this.speedY;
-
-      // Mouse interaction
-      const dx = mouseX - this.x;
-      const dy = mouseY - this.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < 150) {
-        this.x -= dx * 0.005;
-        this.y -= dy * 0.005;
-        this.opacity = Math.min(0.8, this.opacity + 0.01);
-      }
-
-      if (this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) {
-        this.reset();
-      }
-    }
-    draw() {
-      ctx.beginPath();
-      ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-      ctx.fillStyle = this.color;
-      ctx.fill();
-    }
-  }
-
-  // Create particles
-  const count = Math.min(120, Math.floor((canvas.width * canvas.height) / 12000));
-  for (let i = 0; i < count; i++) {
-    particles.push(new Particle());
-  }
-
-  function drawConnections() {
-    for (let i = 0; i < particles.length; i++) {
-      for (let j = i + 1; j < particles.length; j++) {
-        const dx = particles[i].x - particles[j].x;
-        const dy = particles[i].y - particles[j].y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 120) {
-          ctx.beginPath();
-          ctx.moveTo(particles[i].x, particles[i].y);
-          ctx.lineTo(particles[j].x, particles[j].y);
-          ctx.strokeStyle = `rgba(0, 255, 200, ${0.06 * (1 - dist / 120)})`;
-          ctx.lineWidth = 0.5;
-          ctx.stroke();
-        }
-      }
-    }
-  }
-
-  function animate() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    particles.forEach(p => { p.update(); p.draw(); });
-    drawConnections();
-    requestAnimationFrame(animate);
-  }
-
-  resize();
-  window.addEventListener('resize', resize);
-  document.addEventListener('mousemove', (e) => {
-    mouseX = e.clientX;
-    mouseY = e.clientY;
-  });
-  animate();
-})();
-
-/* ---------- Scroll Effects ---------- */
-(function initScroll() {
-  const navbar = document.querySelector('.navbar');
-
-  window.addEventListener('scroll', () => {
-    navbar.classList.toggle('scrolled', window.scrollY > 20);
-  });
-
-  // Intersection Observer for active nav links
-  const sections = document.querySelectorAll('.section');
-  const navLinks = document.querySelectorAll('.nav-link');
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        const id = entry.target.id;
-        navLinks.forEach(link => {
-          link.classList.toggle('active', link.getAttribute('href') === `#${id}`);
-        });
-      }
-    });
-  }, { threshold: 0.3 });
-
-  sections.forEach(s => observer.observe(s));
-})();
-
-/* ---------- Job Data ---------- */
-// This mirrors the actual scraper output structure.
-// In production, this would be fetched from the Bright Data API.
-const MOCK_JOBS = [
-  {
-    company_name: "CityFurnish",
-    job_title: "Data Analytics AI Specialist",
-    tech_stack_tags: ["Python", "SQL", "AI", "Machine Learning"],
-    salary_range: "£60K - £90K GBP",
-    posted_date: "3 days ago",
-    ai_related: true,
-    pulse_tags: ["AI", "Machine Learning"],
-  },
-  {
-    company_name: "Corgi Insurance",
-    job_title: "Quantitative Associate",
-    tech_stack_tags: ["R", "Go", "PostgreSQL"],
-    salary_range: "£100K - £200K GBP",
-    posted_date: "2 months",
-    ai_related: false,
-    pulse_tags: [],
-  },
-  {
-    company_name: "GoSats",
-    job_title: "VP, Credit Card Partnerships",
-    tech_stack_tags: [],
-    salary_range: "",
-    posted_date: "1 week ago",
-    ai_related: false,
-    pulse_tags: [],
-  },
-  {
-    company_name: "Landeed",
-    job_title: "Accountant",
-    tech_stack_tags: ["Excel", "QuickBooks"],
-    salary_range: "",
-    posted_date: "5 days ago",
-    ai_related: false,
-    pulse_tags: [],
-  },
-  {
-    company_name: "SuperKalam",
-    job_title: "Finance Manager — Chartered Accountant",
-    tech_stack_tags: ["Excel", "Tally"],
-    salary_range: "",
-    posted_date: "1 month",
-    ai_related: false,
-    pulse_tags: [],
-  },
-  {
-    company_name: "Laylo",
-    job_title: "Head of Finance",
-    tech_stack_tags: [],
-    salary_range: "",
-    posted_date: "2 weeks ago",
-    ai_related: false,
-    pulse_tags: [],
-  },
-  {
-    company_name: "Neuron Labs",
-    job_title: "ML Engineer — LLM Fine-Tuning",
-    tech_stack_tags: ["PyTorch", "LoRA", "GPT-4", "Python", "LangChain", "RAG"],
-    salary_range: "$180K - $250K USD + equity",
-    posted_date: "1 day ago",
-    ai_related: true,
-    pulse_tags: ["PyTorch", "GPT-4", "LangChain", "RAG"],
-  },
-];
-
-/* ---------- Render Jobs Table ---------- */
-function renderJobs(jobs) {
-  const tbody = document.getElementById('jobs-tbody');
-  const empty = document.getElementById('jobs-empty');
-  const table = document.querySelector('.jobs-table-wrapper');
-
-  if (!jobs || jobs.length === 0) {
-    tbody.innerHTML = '';
-    empty.style.display = 'flex';
-    table.style.display = 'none';
-    return;
-  }
-
-  table.style.display = 'block';
-  empty.style.display = 'none';
-
-  tbody.innerHTML = jobs.map(job => {
-    const aiClass = job.ai_related ? 'ai-row' : '';
-    const aiFlag = job.ai_related
-      ? '<span class="ai-flag yes">🤖 AI</span>'
-      : '<span class="ai-flag no">—</span>';
-    const tags = job.tech_stack_tags && job.tech_stack_tags.length > 0
-      ? job.tech_stack_tags.map(t => {
-          const isAi = job.pulse_tags.includes(t);
-          return isAi
-            ? `<span style="color:var(--accent-cyan);font-weight:600">${t}</span>`
-            : `<span>${t}</span>`;
-        }).join(', ')
-      : '<span class="no-data">—</span>';
-    const salary = job.salary_range
-      ? `<span class="salary-cell">${job.salary_range}</span>`
-      : '<span class="no-data">—</span>';
-
-    return `<tr class="${aiClass}">
-      <td class="company-cell">${job.company_name}</td>
-      <td>${job.job_title}</td>
-      <td>${tags}</td>
-      <td>${salary}</td>
-      <td style="color:var(--text-muted);font-size:0.8rem">${job.posted_date}</td>
-      <td>${aiFlag}</td>
-    </tr>`;
-  }).join('');
-}
-
-/* ---------- Pulse Score Display ---------- */
-function animatePulse() {
-  const target = 72;
-  const el = document.getElementById('pulse-score');
-  let current = 0;
-  const step = () => {
-    current += (target - current) * 0.08;
-    if (Math.abs(current - target) < 0.5) {
-      current = target;
-      el.textContent = Math.round(current);
-      return;
-    }
-    el.textContent = Math.round(current);
-    requestAnimationFrame(step);
+  const escapeHtml = (v) => String(v ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+  const log = (message, replace = false) => {
+    const el = $('log');
+    const stamp = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+    el.textContent = replace ? `[${stamp}] ${message}` : `${el.textContent}\n[${stamp}] ${message}`;
+    el.scrollTop = el.scrollHeight;
   };
-  step();
+  const toast = (message) => { const t=$('toast'); t.textContent=message; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); };
+  const setStatus = (text, live=false) => { $('statusText').textContent=text; $('statusDot').className=live?'live':''; };
 
-  // Level badge
-  const level = target >= 70 ? 'HIGH' : target >= 40 ? 'MEDIUM' : 'LOW';
-  const levelEl = document.getElementById('pulse-level');
-  levelEl.textContent = level;
-  levelEl.style.background = level === 'HIGH' ? 'rgba(0,255,200,0.15)' :
-                            level === 'MEDIUM' ? 'rgba(245,158,11,0.15)' :
-                            'rgba(239,68,68,0.15)';
-  levelEl.style.color = level === 'HIGH' ? 'var(--accent-cyan)' :
-                        level === 'MEDIUM' ? 'var(--accent-orange)' :
-                        'var(--accent-red)';
-  levelEl.style.borderColor = level === 'HIGH' ? 'rgba(0,255,200,0.3)' :
-                              level === 'MEDIUM' ? 'rgba(245,158,11,0.3)' :
-                              'rgba(239,68,68,0.3)';
+  function renderFields() {
+    $('fields').innerHTML = state.fields.map(([key, desc], i) => `<div class="fieldChip"><span class="drag">⋮⋮</span><input data-i="${i}" class="fieldKey" value="${escapeHtml(key)}"><input data-i="${i}" class="fieldDesc" value="${escapeHtml(desc)}"><button class="removeField" data-i="${i}" aria-label="Remove field">×</button></div>`).join('');
+    document.querySelectorAll('.fieldKey,.fieldDesc').forEach(el => el.addEventListener('input', e => {
+      const i=Number(e.target.dataset.i); state.fields[i][e.target.classList.contains('fieldKey')?0:1]=e.target.value;
+    }));
+    document.querySelectorAll('.removeField').forEach(b=>b.addEventListener('click',()=>{state.fields.splice(Number(b.dataset.i),1);renderFields();}));
+  }
 
-  // Gauge arc
-  const circumference = 534.07;
-  const offset = circumference * (1 - target / 100);
-  document.getElementById('pulse-arc').style.strokeDashoffset = offset;
+  function urls() { return $('urls').value.split(/\r?\n|,/).map(s=>s.trim()).filter(Boolean); }
+  function schemaDescription() { return state.fields.filter(([k])=>k.trim()).map(([k,d])=>`${k.trim()} — ${d.trim()}`).join('; '); }
 
-  // Meta bars
-  document.querySelectorAll('.meta-fill').forEach(el => {
-    const w = el.style.width;
-    setTimeout(() => { el.style.width = w; }, 300);
-  });
-}
+  function renderRows(rows) {
+    state.rows = Array.isArray(rows) ? rows : [];
+    const columns = [...new Set(state.rows.flatMap(r => Object.keys(r || {})))];
+    state.columns = columns.length ? columns : state.fields.map(([k])=>k);
+    $('resultTable').querySelector('thead').innerHTML = `<tr>${state.columns.map(c=>`<th>${escapeHtml(c)}</th>`).join('')}</tr>`;
+    $('resultTable').querySelector('tbody').innerHTML = state.rows.length ? state.rows.map(row=>`<tr>${state.columns.map(c=>`<td>${escapeHtml(Array.isArray(row?.[c]) ? row[c].join(', ') : row?.[c] ?? '')}</td>`).join('')}</tr>`).join('') : '<tr><td class="empty">No rows returned.</td></tr>';
+    $('jsonView').textContent = JSON.stringify(state.rows,null,2);
+    $('resultMeta').textContent = `${state.rows.length} rows · ${state.columns.length} fields · ${state.lastRun?.cached ? 'cached' : 'live'} · ${state.lastRun?.collectedAt ? new Date(state.lastRun.collectedAt).toLocaleString() : 'not run'}`;
+  }
 
-function animateMetrics() {
-  const targets = { ai: 60, salary: 20, freshness: 20 };
-  Object.entries(targets).forEach(([key, val]) => {
-    const el = document.getElementById(`${key}-val`);
-    if (!el) return;
-    let current = 0;
-    const step = () => {
-      current += (val - current) * 0.08;
-      if (Math.abs(current - val) < 0.3) {
-        el.textContent = val.toFixed(1);
-        return;
+  function health(rows, columns) {
+    const required = state.fields.map(([k])=>k.trim()).filter(Boolean);
+    const data = rows || [];
+    const checks = required.map(key => {
+      const empty = data.filter(r => { const v=r?.[key]; return v==null || (typeof v==='string'&&!v.trim()) || (Array.isArray(v)&&!v.length); }).length;
+      const ratio = data.length ? empty/data.length : 1;
+      return {key, empty, ratio, ok: ratio < .3 && columns.includes(key)};
+    });
+    const schemaCoverage = required.length ? checks.filter(c=>c.ok).length/required.length : 0;
+    const completeness = data.length ? checks.reduce((a,c)=>a+(1-c.ratio),0)/(checks.length||1) : 0;
+    const score = Math.round(Math.max(0,Math.min(100,(schemaCoverage*.5+completeness*.5)*100)));
+    $('healthScore').textContent=score; $('healthBig').textContent=score; $('rowMetric').textContent=data.length; $('fieldMetric').textContent=columns.length;
+    $('healthSummary').textContent = score >= 85 ? 'Healthy extraction. Schema and completeness look stable.' : score >= 60 ? 'Extraction needs attention. Review the flagged fields before trusting downstream data.' : 'Extraction is unhealthy. Use the self-heal panel to repair the collector.';
+    $('fieldHealth').innerHTML = checks.length ? checks.map(c=>`<div class="fieldHealthRow"><span><b>${escapeHtml(c.key)}</b><small>${c.empty}/${data.length||0} empty</small></span><strong class="${c.ok?'ok':'bad'}">${c.ok?'HEALTHY':'DRIFT'}</strong></div>`).join('') : '<div class="empty">No requested fields.</div>';
+    return {score,checks};
+  }
+
+  async function api(path, options={}) {
+    const res = await fetch(path, {headers:{'Content-Type':'application/json'}, ...options});
+    let body={}; try { body=await res.json(); } catch { body={}; }
+    if (!res.ok) throw new Error(body.error || `Request failed (${res.status})`);
+    return body;
+  }
+
+  async function runExistingCollector(collectorId, targetUrls) {
+    const results=[];
+    for (const url of targetUrls) {
+      log(`Triggering ${url}`);
+      const body=await api('/api/run',{method:'POST',body:JSON.stringify({collectorId,url})});
+      log(`Response ${body.responseId || 'received'} · polling Bright Data...`);
+      const started=Date.now();
+      while(Date.now()-started < 180000) {
+        const p=await api(`/api/run?responseId=${encodeURIComponent(body.responseId)}`);
+        if(p.status==='pending') { log(`Collector still running (${Math.round((Date.now()-started)/1000)}s)`); await new Promise(r=>setTimeout(r,2500)); continue; }
+        if(p.status==='failed') throw new Error(p.error || 'Bright Data collector failed');
+        const rows=Array.isArray(p.data)?p.data:(p.data?.data||p.data?.results||p.data?.items||[]);
+        results.push(...rows); break;
       }
-      el.textContent = current.toFixed(1);
-      requestAnimationFrame(step);
-    };
-    step();
-  });
-}
-
-/* ---------- Health Monitor Display ---------- */
-function renderHealth() {
-  const fields = [
-    { name: 'Company Name', status: 'healthy' },
-    { name: 'Job Title', status: 'healthy' },
-    { name: 'Salary Range', status: 'warning' },
-    { name: 'Tech Stack Tags', status: 'warning' },
-    { name: 'Posted Date', status: 'healthy' },
-  ];
-
-  const container = document.getElementById('health-status');
-  const detailsEl = container.querySelector('.health-details');
-  // Remove the placeholder rows and re-render
-  detailsEl.innerHTML = fields.map(f => `
-    <div class="health-row">
-      <span class="health-field">${f.name}</span>
-      <span class="health-status-badge ${f.status}">
-        ${f.status === 'healthy' ? '✅ Healthy'
-          : f.status === 'warning' ? '⚠️ Needs Attention'
-          : '🔴 Critical'}
-      </span>
-    </div>
-  `).join('');
-
-  // Health ring animation
-  const healthVal = 80;
-  const circumference = 326.73;
-  const offset = circumference * (1 - healthVal / 100);
-  document.getElementById('health-arc').style.strokeDashoffset = offset;
-  document.getElementById('health-score').textContent = healthVal;
-
-  // Recommendation commands
-  const recs = [
-    {
-      field: 'salary_range',
-      label: 'Salary Range',
-      cmd: 'npx -p @brightdata/cli bdata scraper heal c_msyndhlihcuensmoe "The \\"salary_range\\" field is returning empty values. Fix the scraper to extract any salary, compensation, or pay range mentioned in each job posting." --pretty --json --timeout 600'
-    },
-    {
-      field: 'tech_stack_tags',
-      label: 'Tech Stack Tags',
-      cmd: 'npx -p @brightdata/cli bdata scraper heal c_msyndhlihcuensmoe "The \\"tech_stack_tags\\" field is returning empty values. Fix the scraper to extract a list of technologies, languages, frameworks, and tools mentioned in each job posting." --pretty --json --timeout 600'
-    },
-  ];
-
-  const recContainer = document.getElementById('rec-commands');
-  recContainer.innerHTML = recs.map((r, i) => `
-    <div class="rec-command">
-      <span class="rec-num">${i + 1}</span>
-      <span>${r.cmd.replace(/\\"/g, '"')}</span>
-    </div>
-  `).join('');
-}
-
-/* ---------- Copy Command ---------- */
-function initCopyButton() {
-  const btn = document.getElementById('copy-heal-cmd');
-  const display = document.getElementById('heal-command-display');
-
-  btn.addEventListener('click', async () => {
-    const text = display.textContent;
-    try {
-      await navigator.clipboard.writeText(text);
-      showToast('📋 Heal command copied to clipboard!');
-    } catch {
-      // Fallback
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      ta.remove();
-      showToast('📋 Heal command copied!');
     }
-  });
-}
-
-function showToast(msg) {
-  const toast = document.getElementById('toast');
-  toast.textContent = msg;
-  toast.style.display = 'block';
-  setTimeout(() => { toast.style.display = 'none'; }, 2500);
-}
-
-/* ---------- Refresh Jobs (simulated) ---------- */
-function initRefresh() {
-  const btn = document.getElementById('refresh-jobs');
-  btn.addEventListener('click', () => {
-    btn.disabled = true;
-    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.66 4.66A9 9 0 0020.49 15"/></svg> Refreshing...';
-
-    // Simulate API call delay
-    setTimeout(() => {
-      renderJobs(MOCK_JOBS);
-      btn.disabled = false;
-      btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.66 4.66A9 9 0 0020.49 15"/></svg> Refresh from Collector';
-      showToast('📡 Fresh data pulled from collector c_msyndhlihcuensmoe');
-    }, 1500);
-  });
-}
-
-// Spin animation for refresh
-const style = document.createElement('style');
-style.textContent = `
-  .spin {
-    animation: spin 1s linear infinite;
+    return results;
   }
-  @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-  }
-`;
-document.head.appendChild(style);
 
-/* ---------- Init ---------- */
-document.addEventListener('DOMContentLoaded', () => {
-  renderJobs(MOCK_JOBS);
-  animatePulse();
-  animateMetrics();
-  renderHealth();
-  initCopyButton();
-  initRefresh();
-});
+  async function createCollector(url, description) {
+    log('No collector supplied. Starting Bright Data AI collector creation...');
+    const body=await api('/api/collector',{method:'POST',body:JSON.stringify({url,description,name:`nexus-${Date.now()}`})});
+    const collectorId=body.collectorId;
+    if(!collectorId) throw new Error('Collector creation did not return a collector ID.');
+    state.collectorId=collectorId; $('collectorId').value=collectorId; log(`Collector created: ${collectorId}`);
+    return collectorId;
+  }
+
+  async function run() {
+    const targetUrls=urls(); if(!targetUrls.length) return toast('Add at least one public URL.');
+    const desc=$('description').value.trim() || schemaDescription();
+    if(!desc) return toast('Describe the fields you want to extract.');
+    $('runBtn').disabled=true; setStatus('RUNNING',true); log('Starting flexible extraction...',true);
+    try {
+      let id=$('collectorId').value.trim();
+      if(!id && $('autoCreate').checked) id=await createCollector(targetUrls[0],desc);
+      if(!id) throw new Error('Enter a collector ID or enable automatic collector creation.');
+      state.collectorId=id;
+      const rows=await runExistingCollector(id,targetUrls);
+      const normalized=rows.map(r=>{ const o={}; state.fields.forEach(([k])=>o[k]=r?.[k] ?? r?.[k.replace(/_([a-z])/g,(_,c)=>c.toUpperCase())] ?? null); return Object.keys(o).length?o:r; });
+      const columns=[...new Set(normalized.flatMap(r=>Object.keys(r||{})))];
+      const h=health(normalized,columns); renderRows(normalized); state.lastRun={collectedAt:new Date().toISOString(),cached:false}; renderRows(normalized); log(`Completed: ${normalized.length} rows · health ${h.score}/100`); setStatus(h.score>=60?'HEALTHY':'DRIFT',h.score>=60);
+      if(h.score<60) { $('healState').textContent='DRIFT DETECTED'; $('healPrompt').value=`Extraction drift detected in: ${h.checks.filter(c=>!c.ok).map(c=>c.key).join(', ')}. Repair the existing collector for this schema: ${schemaDescription()}.`; }
+    } catch(e) { log(`ERROR: ${e.message}`); setStatus('ERROR'); toast(e.message); } finally { $('runBtn').disabled=false; }
+  }
+
+  async function triggerHeal() {
+    const id=$('collectorId').value.trim() || state.collectorId; if(!id) return toast('Run or create a collector first.');
+    const prompt=$('healPrompt').value.trim(); if(!prompt) return toast('Describe the extraction failure first.');
+    $('healBtn').disabled=true; setStatus('HEALING',true); $('healState').textContent='HEALING'; log(`Triggering Bright Data self-heal for ${id}...`);
+    try { const r=await api('/api/heal',{method:'POST',body:JSON.stringify({collectorId:id,prompt})}); $('healPreview').textContent=JSON.stringify(r,null,2); $('healState').textContent=r.status||'AWAITING APPROVAL'; log(`Heal status: ${r.status||'awaiting approval'}`); }
+    catch(e){log(`HEAL ERROR: ${e.message}`);toast(e.message);$('healState').textContent='ERROR';} finally {$('healBtn').disabled=false;}
+  }
+  async function approveHeal() { const id=$('collectorId').value.trim()||state.collectorId; if(!id)return toast('No collector selected.'); try { const r=await api('/api/heal',{method:'PUT',body:JSON.stringify({collectorId:id})}); $('healPreview').textContent=JSON.stringify(r,null,2); $('healState').textContent=r.status||'APPROVED'; log(`Repair approval: ${r.status||'complete'}`); } catch(e){toast(e.message);log(`APPROVE ERROR: ${e.message}`);} }
+
+  function csvDownload() { if(!state.rows.length)return toast('No data to export.'); const cols=state.columns; const lines=[cols.map(c=>`"${String(c).replaceAll('"','""')}"`).join(','),...state.rows.map(r=>cols.map(c=>`"${String(Array.isArray(r?.[c])?r[c].join('; '):r?.[c]??'').replaceAll('"','""')}"`).join(','))]; download('nexus-radar.csv',lines.join('\n'),'text/csv'); }
+  function download(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();URL.revokeObjectURL(a.href);}
+
+  $('runBtn').addEventListener('click',run); $('healBtn').addEventListener('click',triggerHeal); $('approveBtn').addEventListener('click',approveHeal);
+  $('addField').addEventListener('click',()=>{const raw=$('newField').value.trim(); if(!raw)return; const [k,...rest]=raw.split('|').map(s=>s.trim()); state.fields.push([k,rest.join(' | ')||'Requested extraction field']); $('newField').value='';renderFields();});
+  $('exampleAmazon').addEventListener('click',()=>{$('urls').value='https://example.com/products';$('description').value='Extract one row per product with product name, price, availability, rating and product URL.';});
+  $('exampleDocs').addEventListener('click',()=>{$('urls').value='https://example.com/docs';$('description').value='Extract document title, section heading, summary, author and canonical URL for each document.';});
+  $('clearUrls').addEventListener('click',()=>{$('urls').value='';});
+  document.querySelectorAll('.mode').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.mode').forEach(x=>x.classList.remove('active'));b.classList.add('active');state.mode=b.dataset.mode;}));
+  $('viewTable').addEventListener('click',()=>{$('tableWrap').classList.remove('hidden');$('jsonView').classList.add('hidden');}); $('viewJson').addEventListener('click',()=>{$('tableWrap').classList.add('hidden');$('jsonView').classList.remove('hidden');});
+  $('downloadCsv').addEventListener('click',csvDownload); $('downloadJson').addEventListener('click',()=>download('nexus-radar.json',JSON.stringify(state.rows,null,2),'application/json')); $('copyLog').addEventListener('click',()=>navigator.clipboard?.writeText($('log').textContent).then(()=>toast('Activity copied.')));
+  renderFields(); renderRows([]); health([],[]);
+})();
