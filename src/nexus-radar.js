@@ -1,10 +1,9 @@
 /**
  * AI-Nexus Radar — Collector Client
- * =================================
  * Bright Data collector -> normalization -> health-aware pulse scoring.
  *
  * Environment:
- *   BRIGHTDATA_API_KEY  required
+ *   BRIGHTDATA_API_KEY  required for live requests
  *   COLLECTOR_ID        defaults to c_msyndhlihcuensmoe
  *   TARGET_URL          defaults to https://www.ycombinator.com/jobs
  *   MAX_RETRIES         defaults to 4
@@ -12,14 +11,8 @@
 
 const COLLECTOR_ID = process.env.COLLECTOR_ID || "c_msyndhlihcuensmoe";
 const TARGET_URL = process.env.TARGET_URL || "https://www.ycombinator.com/jobs";
-const API_KEY = process.env.BRIGHTDATA_API_KEY;
 const MAX_RETRIES = Number(process.env.MAX_RETRIES || 4);
 const BRIGHT_BASE = "https://api.brightdata.com/api/v1";
-
-if (!API_KEY) {
-  console.error("Set BRIGHTDATA_API_KEY in your environment.");
-  process.exit(1);
-}
 
 const AI_KEYWORDS = [
   "ai", "machine learning", "ml", "llm", "langchain", "pytorch",
@@ -38,6 +31,11 @@ function unwrapRows(raw) {
 }
 
 async function fetchScrape(collectorId, url, maxRetries = MAX_RETRIES) {
+  const apiKey = process.env.BRIGHTDATA_API_KEY;
+  if (!apiKey) {
+    throw new Error("BRIGHTDATA_API_KEY is not configured on the server.");
+  }
+
   let lastError;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -46,7 +44,7 @@ async function fetchScrape(collectorId, url, maxRetries = MAX_RETRIES) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${API_KEY}`
+          Authorization: `Bearer ${apiKey}`
         },
         body: JSON.stringify({ collector_id: collectorId, url })
       });
@@ -55,7 +53,7 @@ async function fetchScrape(collectorId, url, maxRetries = MAX_RETRIES) {
 
       const body = await res.text().catch(() => "");
       const retryable = [408, 425, 429, 500, 502, 503, 504].includes(res.status);
-      lastError = new Error(`Bright Data scrape failed (${res.status}): ${body}`);
+      lastError = new Error(`Bright Data scrape failed (${res.status}): ${body.slice(0, 500)}`);
 
       if (!retryable || attempt === maxRetries) throw lastError;
 
@@ -66,7 +64,7 @@ async function fetchScrape(collectorId, url, maxRetries = MAX_RETRIES) {
     } catch (error) {
       lastError = error;
       if (attempt === maxRetries) throw error;
-      if (!/fetch|network|timed out|failed/i.test(error.message)) throw error;
+      if (!/fetch|network|timed out|failed|ECONN|socket/i.test(error.message)) throw error;
       const backoff = Math.min(1000 * 2 ** attempt, 30000) + Math.floor(Math.random() * 500);
       await sleep(backoff);
     }
@@ -80,11 +78,9 @@ function isAITagged(tags) {
   return tags.some(tag => AI_KEYWORDS.some(keyword => String(tag).toLowerCase().includes(keyword)));
 }
 
-function parsePostedDate(raw) {
+function parsePostedDate(raw, now = Date.now()) {
   if (!raw) return null;
   const value = String(raw).trim().toLowerCase();
-  const now = Date.now();
-
   const relative = value.match(/(\d+)\s*(minute|hour|day|week|month)s?/i);
   if (relative) {
     const amount = Number(relative[1]);
@@ -103,7 +99,7 @@ function hasValue(value) {
   return String(value).trim() !== "" && String(value).trim().toLowerCase() !== "n/a";
 }
 
-function computePulse(rawJobs) {
+function computePulse(rawJobs, now = Date.now()) {
   const jobs = Array.isArray(rawJobs) ? rawJobs : [];
   const total = jobs.length;
 
@@ -120,13 +116,13 @@ function computePulse(rawJobs) {
   let aiCount = 0;
   let transparencyCount = 0;
   let freshCount = 0;
-  const cutoff = Date.now() - 30 * 86400000;
+  const cutoff = now - 30 * 86400000;
 
   const enriched = jobs.map(job => {
     const tags = Array.isArray(job.tech_stack_tags) ? job.tech_stack_tags : [];
     const aiRelated = isAITagged(tags);
     const hasSalary = hasValue(job.salary_range);
-    const postedTs = parsePostedDate(job.posted_date);
+    const postedTs = parsePostedDate(job.posted_date, now);
     const isRecent = Boolean(postedTs && postedTs >= cutoff);
 
     if (aiRelated) aiCount++;
@@ -158,22 +154,28 @@ function computePulse(rawJobs) {
   };
 }
 
+async function collectRadarData(options = {}) {
+  const collectorId = options.collectorId || COLLECTOR_ID;
+  const targetUrl = options.targetUrl || TARGET_URL;
+  const raw = await fetchScrape(collectorId, targetUrl, options.maxRetries ?? MAX_RETRIES);
+  const jobs = unwrapRows(raw);
+  return {
+    collectedAt: new Date().toISOString(),
+    collectorId,
+    targetUrl,
+    result: computePulse(jobs),
+    rawCount: jobs.length
+  };
+}
+
 async function main() {
+  const data = await collectRadarData();
   console.log(`Target: ${TARGET_URL}`);
   console.log(`Collector: ${COLLECTOR_ID}`);
-
-  const raw = await fetchScrape(COLLECTOR_ID, TARGET_URL);
-  const jobs = unwrapRows(raw);
-  const result = computePulse(jobs);
-
-  console.log(`Jobs: ${result.totals.jobs}`);
-  console.log(`Pulse: ${result.pulse}/100 -> ${result.level}`);
-  console.log(`AI density: ${(result.breakdown.aiDensity * 100).toFixed(1)}%`);
-  console.log(`Market transparency: ${(result.breakdown.marketTransparency * 100).toFixed(1)}%`);
-  console.log(`Freshness: ${(result.breakdown.freshness * 100).toFixed(1)}%`);
-  console.log(JSON.stringify(result, null, 2));
-
-  return result;
+  console.log(`Jobs: ${data.rawCount}`);
+  console.log(`Pulse: ${data.result.pulse}/100 -> ${data.result.level}`);
+  console.log(JSON.stringify(data.result, null, 2));
+  return data;
 }
 
 if (require.main === module) {
@@ -185,8 +187,12 @@ if (require.main === module) {
 
 module.exports = {
   AI_KEYWORDS,
+  COLLECTOR_ID,
+  TARGET_URL,
+  collectRadarData,
   computePulse,
   fetchScrape,
+  hasValue,
   isAITagged,
   parsePostedDate,
   unwrapRows
