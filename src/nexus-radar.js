@@ -7,12 +7,16 @@
  *   COLLECTOR_ID        defaults to c_msyndhlihcuensmoe
  *   TARGET_URL          defaults to https://www.ycombinator.com/jobs
  *   MAX_RETRIES         defaults to 4
+ *   SCRAPE_TIMEOUT_SEC  defaults to 45
  */
 
 const COLLECTOR_ID = process.env.COLLECTOR_ID || "c_msyndhlihcuensmoe";
 const TARGET_URL = process.env.TARGET_URL || "https://www.ycombinator.com/jobs";
 const MAX_RETRIES = Number(process.env.MAX_RETRIES || 4);
-const BRIGHT_BASE = "https://api.brightdata.com/api/v1";
+const SCRAPE_TIMEOUT_SEC = Number(process.env.SCRAPE_TIMEOUT_SEC || 45);
+const BRIGHT_BASE = "https://api.brightdata.com";
+const TRIGGER_PATH = "/dca/trigger_immediate";
+const RESULT_PATH = "/dca/get_result";
 
 const AI_KEYWORDS = [
   "ai", "machine learning", "ml", "llm", "langchain", "pytorch",
@@ -27,50 +31,126 @@ function sleep(ms) {
 
 function unwrapRows(raw) {
   if (Array.isArray(raw)) return raw;
-  return raw?.data || raw?.results || raw?.items || [];
+  if (Array.isArray(raw?.data)) return raw.data;
+  if (Array.isArray(raw?.results)) return raw.results;
+  if (Array.isArray(raw?.items)) return raw.items;
+  if (Array.isArray(raw?.rows)) return raw.rows;
+  return [];
 }
 
-async function fetchScrape(collectorId, url, maxRetries = MAX_RETRIES) {
+function isPendingResult(raw) {
+  if (!raw) return true;
+  if (raw.pending === true) return true;
+  const status = String(raw.status || raw.state || "").toLowerCase();
+  return ["pending", "queued", "running", "processing", "in_progress", "started"].includes(status);
+}
+
+function isFailedResult(raw) {
+  if (!raw) return false;
+  if (raw.error) return true;
+  const status = String(raw.status || raw.state || "").toLowerCase();
+  return ["failed", "error", "cancelled", "canceled"].includes(status);
+}
+
+function buildBrightHeaders() {
   const apiKey = process.env.BRIGHTDATA_API_KEY;
   if (!apiKey) {
     throw new Error("BRIGHTDATA_API_KEY is not configured on the server.");
   }
+  return {
+    Authorization: `Bearer ${apiKey}`,
+    "Content-Type": "application/json"
+  };
+}
 
+async function requestBright(path, options = {}, maxRetries = MAX_RETRIES) {
+  const headers = { ...buildBrightHeaders(), ...(options.headers || {}) };
   let lastError;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      const res = await fetch(`${BRIGHT_BASE}/scraper`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({ collector_id: collectorId, url })
+      const res = await fetch(`${BRIGHT_BASE}${path}`, {
+        ...options,
+        headers
       });
 
-      if (res.ok) return res.json();
+      const text = await res.text().catch(() => "");
+      let payload = {};
+      if (text) {
+        try {
+          payload = JSON.parse(text);
+        } catch {
+          payload = { raw: text };
+        }
+      }
 
-      const body = await res.text().catch(() => "");
+      if (res.ok) return payload;
+
       const retryable = [408, 425, 429, 500, 502, 503, 504].includes(res.status);
-      lastError = new Error(`Bright Data scrape failed (${res.status}): ${body.slice(0, 500)}`);
+      lastError = new Error(
+        `Bright Data request failed (${res.status}): ${String(payload?.error || payload?.message || text).slice(0, 500)}`
+      );
 
       if (!retryable || attempt === maxRetries) throw lastError;
-
-      const backoff = Math.min(1000 * 2 ** attempt, 30000);
-      const jitter = Math.floor(Math.random() * 500);
-      console.warn(`Retryable scrape error ${res.status}; retrying in ${backoff + jitter}ms (${attempt + 1}/${maxRetries})`);
-      await sleep(backoff + jitter);
+      const backoff = Math.min(1000 * 2 ** attempt, 8000) + Math.floor(Math.random() * 400);
+      await sleep(backoff);
     } catch (error) {
       lastError = error;
       if (attempt === maxRetries) throw error;
-      if (!/fetch|network|timed out|failed|ECONN|socket/i.test(error.message)) throw error;
-      const backoff = Math.min(1000 * 2 ** attempt, 30000) + Math.floor(Math.random() * 500);
+      if (!/fetch|network|timed out|failed|ECONN|socket|Bright Data/i.test(error.message)) throw error;
+      const backoff = Math.min(1000 * 2 ** attempt, 8000) + Math.floor(Math.random() * 400);
       await sleep(backoff);
     }
   }
 
-  throw lastError || new Error("Unknown scrape error");
+  throw lastError || new Error("Unknown Bright Data error");
+}
+
+async function triggerScrape(collectorId = COLLECTOR_ID, url = TARGET_URL) {
+  const payload = await requestBright(
+    `${TRIGGER_PATH}?collector=${encodeURIComponent(collectorId)}`,
+    {
+      method: "POST",
+      body: JSON.stringify({ url })
+    }
+  );
+
+  if (!payload?.response_id) {
+    throw new Error("Bright Data did not return a response_id for the collector run.");
+  }
+
+  return payload.response_id;
+}
+
+async function getScrapeResult(responseId) {
+  return requestBright(`${RESULT_PATH}?response_id=${encodeURIComponent(responseId)}`, {
+    method: "GET"
+  });
+}
+
+async function fetchScrape(collectorId, url, maxRetries = MAX_RETRIES, timeoutSeconds = SCRAPE_TIMEOUT_SEC) {
+  const responseId = await triggerScrape(collectorId, url);
+  const deadline = Date.now() + Math.max(10, timeoutSeconds) * 1000;
+  let lastPayload = null;
+
+  while (Date.now() < deadline) {
+    const payload = await getScrapeResult(responseId);
+    lastPayload = payload;
+
+    if (isFailedResult(payload)) {
+      throw new Error(`Bright Data collector failed: ${String(payload?.error || payload?.message || payload?.status || "unknown error")}`);
+    }
+
+    const rows = unwrapRows(payload);
+    if (rows.length > 0 || !isPendingResult(payload)) return rows;
+
+    await sleep(2000);
+  }
+
+  const error = new Error(`Bright Data collector timed out after ${timeoutSeconds}s (response_id=${responseId}).`);
+  error.responseId = responseId;
+  error.lastPayload = lastPayload;
+  throw error;
 }
 
 function isAITagged(tags) {
@@ -157,8 +237,8 @@ function computePulse(rawJobs, now = Date.now()) {
 async function collectRadarData(options = {}) {
   const collectorId = options.collectorId || COLLECTOR_ID;
   const targetUrl = options.targetUrl || TARGET_URL;
-  const raw = await fetchScrape(collectorId, targetUrl, options.maxRetries ?? MAX_RETRIES);
-  const jobs = unwrapRows(raw);
+  const rawJobs = options.rawJobs || await fetchScrape(collectorId, targetUrl, options.maxRetries ?? MAX_RETRIES, options.timeoutSeconds ?? SCRAPE_TIMEOUT_SEC);
+  const jobs = unwrapRows(rawJobs);
   return {
     collectedAt: new Date().toISOString(),
     collectorId,
@@ -192,8 +272,10 @@ module.exports = {
   collectRadarData,
   computePulse,
   fetchScrape,
+  getScrapeResult,
   hasValue,
   isAITagged,
   parsePostedDate,
+  triggerScrape,
   unwrapRows
 };
