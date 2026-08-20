@@ -1,0 +1,13 @@
+{
+  "name": "ai-nexus-radar",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Self-healing web intelligence system powered by Bright Data Scraper Studio.",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "health:test": "node --test test/health-monitor.test.js",
+    "test": "npm run health:test"
+  }
+}
