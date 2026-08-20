@@ -3,39 +3,223 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#05070d">
-  <meta name="description" content="AI-Nexus Radar — self-healing web intelligence powered by Bright Data.">
+  <meta name="theme-color" content="#060914">
+  <meta name="description" content="AI-Nexus Radar — self-healing web intelligence powered by Bright Data Scraper Studio.">
+  <meta property="og:title" content="AI-Nexus Radar — Self-Healing Web Intelligence">
+  <meta property="og:description" content="Detect extraction drift. Generate a repair. Recover structured data.">
   <title>AI-Nexus Radar — Self-Healing Web Intelligence</title>
   <style>
-    :root{--bg:#05070d;--panel:#0b101a;--panel2:#0f1724;--line:#1d2a3b;--text:#edf6ff;--muted:#8da0b5;--cyan:#39f5d0;--blue:#5da9ff;--violet:#a78bfa;--amber:#f6c85f;--red:#ff6b7a;--green:#63e6be;--shadow:0 24px 80px rgba(0,0,0,.35)}
-    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(circle at 20% 0%,rgba(57,245,208,.09),transparent 30%),radial-gradient(circle at 90% 20%,rgba(167,139,250,.10),transparent 28%),var(--bg);color:var(--text);font:15px/1.65 Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif}a{color:inherit;text-decoration:none}button{font:inherit}.wrap{width:min(1180px,92vw);margin:auto}.nav{position:sticky;top:0;z-index:10;backdrop-filter:blur(18px);background:rgba(5,7,13,.72);border-bottom:1px solid rgba(255,255,255,.06)}.navin{height:68px;display:flex;align-items:center;justify-content:space-between}.brand{font-weight:900;letter-spacing:-.04em;font-size:20px}.brand i{font-style:normal;color:var(--cyan)}.links{display:flex;gap:24px;color:var(--muted);font-size:13px}.links a:hover{color:var(--text)}.pill{border:1px solid rgba(57,245,208,.22);background:rgba(57,245,208,.07);padding:7px 11px;border-radius:999px;font:12px ui-monospace,monospace;color:var(--cyan)}.hero{padding:92px 0 70px;display:grid;grid-template-columns:1.05fr .95fr;gap:55px;align-items:center}.eyebrow{display:inline-flex;gap:8px;align-items:center;color:var(--cyan);font:12px ui-monospace,monospace;border:1px solid rgba(57,245,208,.2);background:rgba(57,245,208,.06);padding:8px 11px;border-radius:999px}.hero h1{font-size:clamp(48px,7vw,86px);line-height:.95;letter-spacing:-.065em;margin:20px 0}.hero h1 span{display:block;background:linear-gradient(100deg,var(--cyan),var(--blue),var(--violet));-webkit-background-clip:text;color:transparent}.hero p{max-width:680px;color:var(--muted);font-size:18px}.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:30px}.btn{border:1px solid var(--line);border-radius:12px;padding:12px 16px;cursor:pointer;background:var(--panel);color:var(--text);font-weight:750}.btn.primary{background:var(--cyan);border-color:var(--cyan);color:#03110e}.btn:hover{transform:translateY(-1px)}.hero-card,.card{background:linear-gradient(145deg,rgba(15,23,36,.94),rgba(8,13,22,.94));border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow)}.hero-card{padding:25px}.score{display:flex;align-items:center;gap:24px}.ring{width:190px;height:190px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--cyan) 0 72%,#1a2636 72% 100%);position:relative}.ring:after{content:'';position:absolute;inset:12px;border-radius:50%;background:var(--panel)}.scoretext{position:relative;z-index:1;text-align:center}.scoretext strong{font-size:50px;display:block;letter-spacing:-.06em}.scoretext small{color:var(--muted)}.high{color:var(--cyan);font-weight:800;font-size:12px;letter-spacing:.12em}.stats{flex:1}.stat{margin:15px 0}.stathead{display:flex;justify-content:space-between;color:var(--muted);font-size:12px}.bar{height:7px;background:#182333;border-radius:99px;overflow:hidden;margin-top:7px}.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--cyan),var(--blue));border-radius:inherit}.section{padding:72px 0}.section h2{font-size:40px;letter-spacing:-.045em;margin:5px 0 10px}.section>p{color:var(--muted);max-width:720px}.tag{font:11px ui-monospace,monospace;color:var(--cyan);text-transform:uppercase;letter-spacing:.16em}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:28px}.card{padding:22px}.metric{font-size:35px;font-weight:900;letter-spacing:-.05em}.muted{color:var(--muted)}.weight{font:11px ui-monospace,monospace;color:var(--cyan)}.pipeline{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:30px}.node{padding:20px 15px;text-align:center;border:1px solid var(--line);background:var(--panel);border-radius:16px;position:relative}.node:not(:last-child):after{content:'→';position:absolute;right:-15px;top:34px;color:var(--cyan);z-index:2}.node b{display:block;margin:8px 0}.node small{color:var(--muted)}.demo{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:28px}.terminal{background:#03050a;border:1px solid var(--line);border-radius:16px;overflow:hidden}.termhead{padding:11px 14px;border-bottom:1px solid var(--line);color:var(--muted);font:11px ui-monospace,monospace}.term{padding:18px;min-height:270px;font:12px/1.9 ui-monospace,monospace;white-space:pre-wrap;color:#b9c8d8}.ok{color:var(--green)}.warn{color:var(--amber)}.bad{color:var(--red)}.cyan{color:var(--cyan)}.demo-controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:15px}.progress{height:5px;background:#172333;border-radius:99px;overflow:hidden;margin-top:15px}.progress i{display:block;width:0;height:100%;background:linear-gradient(90deg,var(--cyan),var(--violet));transition:width .5s}.jobs{overflow:auto;margin-top:28px}.jobs table{width:100%;border-collapse:collapse;min-width:760px;background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden}.jobs th,.jobs td{text-align:left;padding:14px;border-bottom:1px solid var(--line);font-size:13px}.jobs th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em}.ai{color:var(--cyan);font-weight:800}.architecture{margin-top:28px}.formula{font:14px ui-monospace,monospace;background:#060b12;border:1px solid var(--line);padding:18px;border-radius:14px;display:inline-block}.footer{padding:50px 0 70px;color:var(--muted);border-top:1px solid var(--line);font-size:13px}.toast{position:fixed;right:20px;bottom:20px;padding:12px 15px;background:#111c2b;border:1px solid var(--cyan);border-radius:10px;display:none;z-index:30}@media(max-width:850px){.links{display:none}.hero,.demo{grid-template-columns:1fr}.grid3{grid-template-columns:1fr}.pipeline{grid-template-columns:1fr}.node:not(:last-child):after{content:'↓';right:auto;left:50%;top:auto;bottom:-24px}.hero{padding-top:55px}.score{flex-direction:column}.section h2{font-size:32px}}
+    :root{
+      --bg:#05070d;--bg2:#080c16;--panel:rgba(12,18,31,.82);--panel2:rgba(16,24,40,.9);--line:rgba(148,163,184,.14);
+      --text:#f3f7fb;--muted:#98a8ba;--muted2:#6f8093;--cyan:#55f6d1;--blue:#76b7ff;--violet:#b38cff;--amber:#ffd166;--red:#ff7083;--green:#5ee7ae;
+      --shadow:0 24px 90px rgba(0,0,0,.36);--radius:22px;--max:1220px;
+    }
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:var(--text);font:15px/1.65 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:
+      radial-gradient(circle at 10% 0%,rgba(85,246,209,.09),transparent 26%),
+      radial-gradient(circle at 90% 10%,rgba(118,183,255,.10),transparent 24%),
+      radial-gradient(circle at 50% 70%,rgba(179,140,255,.08),transparent 26%),var(--bg);overflow-x:hidden}
+    a{color:inherit;text-decoration:none}.wrap{width:min(var(--max),92vw);margin:auto}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+    body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.05;background-image:linear-gradient(rgba(255,255,255,.22) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.22) 1px,transparent 1px);background-size:56px 56px;mask-image:linear-gradient(to bottom,black,transparent 75%);z-index:-2}
+    .orb{position:fixed;width:520px;height:520px;border-radius:50%;filter:blur(120px);opacity:.12;pointer-events:none;z-index:-1}.orb.a{background:var(--cyan);top:-280px;left:-230px}.orb.b{background:var(--violet);right:-250px;top:28%;}.orb.c{background:var(--blue);left:34%;bottom:-370px}
+    .nav{position:sticky;top:0;z-index:50;background:rgba(5,7,13,.68);backdrop-filter:blur(18px);border-bottom:1px solid rgba(255,255,255,.06)}
+    .navin{height:70px;display:flex;align-items:center;justify-content:space-between;gap:20px}.brand{display:flex;align-items:center;gap:10px;font-weight:900;letter-spacing:-.04em;font-size:20px}.logo{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:linear-gradient(135deg,var(--cyan),var(--blue));color:#03110e;box-shadow:0 0 28px rgba(85,246,209,.22)}.brand em{font-style:normal;color:var(--cyan)}.links{display:flex;gap:22px;color:var(--muted);font-size:13px}.links a:hover,.links a:focus-visible{color:var(--text)}.topstatus{display:flex;align-items:center;gap:9px;padding:8px 11px;border:1px solid rgba(85,246,209,.18);background:rgba(85,246,209,.06);border-radius:999px;color:var(--cyan);font:11px ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap}.dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 14px var(--green)}
+    .hero{padding:78px 0 52px;display:grid;grid-template-columns:1.08fr .92fr;gap:44px;align-items:center}.eyebrow{display:inline-flex;align-items:center;gap:8px;color:var(--cyan);font:11px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.15em;text-transform:uppercase;border:1px solid rgba(85,246,209,.18);background:rgba(85,246,209,.055);padding:9px 12px;border-radius:999px}.hero h1{font-size:clamp(48px,7vw,88px);line-height:.93;letter-spacing:-.07em;margin:21px 0 18px;max-width:800px}.gradient{background:linear-gradient(100deg,var(--cyan),var(--blue) 46%,var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent}.hero p{max-width:760px;color:var(--muted);font-size:18px;margin:0}.hero p strong{color:var(--text)}.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:28px}.btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;border:1px solid var(--line);border-radius:13px;padding:12px 16px;cursor:pointer;background:var(--panel2);color:var(--text);font-weight:800;transition:.18s ease;box-shadow:0 10px 26px rgba(0,0,0,.14)}.btn:hover{transform:translateY(-2px);border-color:rgba(85,246,209,.35)}.btn:focus-visible{outline:2px solid var(--cyan);outline-offset:3px}.btn.primary{background:linear-gradient(135deg,var(--cyan),#8af7dd);color:#04110d;border-color:transparent}.btn.ghost{background:transparent}.btn.small{padding:9px 12px;font-size:12px}
+    .hero-card,.card,.proof,.jobs,.timeline,.footcard{background:linear-gradient(145deg,rgba(15,23,38,.86),rgba(8,13,23,.92));border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+    .hero-card{padding:24px;position:relative;overflow:hidden}.hero-card:before{content:"";position:absolute;inset:-80px;background:radial-gradient(circle at 20% 20%,rgba(85,246,209,.13),transparent 28%),radial-gradient(circle at 84% 18%,rgba(179,140,255,.13),transparent 26%);pointer-events:none}.hero-card>*{position:relative}.hero-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:22px}.micro{font:11px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted2);letter-spacing:.08em;text-transform:uppercase}.mode{display:inline-flex;align-items:center;gap:7px;padding:6px 9px;border-radius:999px;background:rgba(255,255,255,.04);color:var(--muted);font:10px ui-monospace,SFMono-Regular,Menlo,monospace}.scoreline{display:grid;grid-template-columns:190px 1fr;gap:24px;align-items:center}.ring{width:190px;height:190px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--cyan) 0 72%,#1a2535 72% 100%);position:relative;box-shadow:0 0 50px rgba(85,246,209,.10)}.ring:after{content:"";position:absolute;inset:13px;border-radius:50%;background:#0a111d;border:1px solid rgba(255,255,255,.06)}.scoretext{position:relative;z-index:1;text-align:center}.scoretext strong{display:block;font-size:55px;line-height:1;letter-spacing:-.06em}.scoretext small{color:var(--muted);font:12px ui-monospace,SFMono-Regular,Menlo,monospace}.level{margin-top:10px;color:var(--cyan);font:800 11px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.16em}.signal{margin:13px 0}.signal-head{display:flex;justify-content:space-between;gap:10px;color:var(--muted);font-size:12px}.signal-head b{color:var(--text)}.bar{height:7px;background:#182333;border-radius:999px;overflow:hidden;margin-top:7px}.bar i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--cyan),var(--blue))}.score-note{margin:18px 0 0;color:var(--muted2);font-size:11px}.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:20px}.kpi{padding:14px 15px;border:1px solid var(--line);background:rgba(255,255,255,.025);border-radius:16px}.kpi b{font-size:22px;letter-spacing:-.04em}.kpi span{display:block;color:var(--muted2);font-size:11px;margin-top:3px}
+    .section{padding:78px 0}.tag{font:11px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--cyan);letter-spacing:.17em;text-transform:uppercase}.section h2{font-size:clamp(32px,4.5vw,50px);letter-spacing:-.055em;line-height:1.05;margin:7px 0 11px}.section>.lead{max-width:760px;color:var(--muted);margin:0}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:28px}.card{padding:23px}.icon{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:rgba(85,246,209,.08);border:1px solid rgba(85,246,209,.16);color:var(--cyan);font-size:18px}.metric{font-size:37px;font-weight:900;letter-spacing:-.05em;margin-top:15px}.card h3{margin:8px 0 6px;font-size:20px}.muted{color:var(--muted)}.mini{font:11px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--cyan);margin-top:12px}.formula{margin-top:18px;display:inline-flex;padding:13px 15px;border:1px solid var(--line);border-radius:13px;background:#060b12;color:#d4dfeb;font:12px ui-monospace,SFMono-Regular,Menlo,monospace}
+    .split{display:grid;grid-template-columns:1fr .95fr;gap:18px;margin-top:28px}.proof{padding:24px}.proofhead{display:flex;justify-content:space-between;align-items:center;gap:12px}.proof h3{font-size:23px;margin:10px 0 7px}.step-list{display:grid;gap:11px;margin-top:18px}.step{display:grid;grid-template-columns:32px 1fr auto;gap:12px;align-items:center;padding:12px;border:1px solid var(--line);background:rgba(255,255,255,.025);border-radius:14px}.stepnum{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:#0d1825;color:var(--cyan);font:700 12px ui-monospace,monospace;border:1px solid rgba(85,246,209,.15)}.step b{font-size:13px}.step small{display:block;color:var(--muted2);font-size:11px}.state{padding:6px 8px;border-radius:999px;background:rgba(255,255,255,.04);color:var(--muted);font:10px ui-monospace,monospace}.state.ok{color:var(--green);background:rgba(94,231,174,.08)}.state.warn{color:var(--amber);background:rgba(255,209,102,.08)}.state.fail{color:var(--red);background:rgba(255,112,131,.08)}
+    .terminal{background:#03060b;border:1px solid var(--line);border-radius:18px;overflow:hidden}.termhead{display:flex;align-items:center;gap:8px;padding:11px 13px;border-bottom:1px solid var(--line);color:var(--muted2);font:10px ui-monospace,SFMono-Regular,Menlo,monospace}.traffic{display:flex;gap:5px}.traffic i{display:block;width:7px;height:7px;border-radius:50%;background:#283546}.terminalbody{padding:18px;min-height:340px;font:12px/1.85 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;color:#bbcad8}.ok{color:var(--green)}.warn{color:var(--amber)}.bad{color:var(--red)}.cyan{color:var(--cyan)}.violet{color:var(--violet)}.controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:15px}.progress{height:6px;background:#15202e;border-radius:999px;overflow:hidden;margin-top:16px}.progress i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--violet));transition:width .45s ease}.statusline{display:flex;justify-content:space-between;gap:12px;color:var(--muted2);font-size:11px;margin-top:10px}.copybox{margin-top:15px;padding:14px;border:1px solid var(--line);border-radius:14px;background:#05080d;overflow:auto}.copybox code{font:11px/1.7 ui-monospace,SFMono-Regular,Menlo,monospace;color:#c8d6e2}
+    .jobs{margin-top:28px;overflow:auto}.jobs table{width:100%;border-collapse:collapse;min-width:860px}.jobs th,.jobs td{padding:15px 14px;border-bottom:1px solid var(--line);text-align:left;font-size:12px}.jobs th{color:var(--muted2);font-size:10px;text-transform:uppercase;letter-spacing:.09em}.jobs tbody tr:hover{background:rgba(255,255,255,.022)}.company{font-weight:800}.badge{display:inline-flex;align-items:center;padding:5px 8px;border-radius:999px;font:10px ui-monospace,monospace}.badge.ai{color:var(--cyan);background:rgba(85,246,209,.08);border:1px solid rgba(85,246,209,.14)}.badge.neutral{color:var(--muted);background:rgba(255,255,255,.04)}
+    .arch{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:28px}.node{position:relative;padding:20px 15px;text-align:center;border:1px solid var(--line);background:rgba(11,17,29,.82);border-radius:16px}.node:not(:last-child):after{content:"→";position:absolute;right:-13px;top:34px;color:var(--cyan);font-weight:900;z-index:3}.node-icon{font-size:22px}.node b{display:block;margin:8px 0 3px}.node small{color:var(--muted2);font-size:10px}.note{margin-top:15px;padding:14px 15px;border:1px solid rgba(85,246,209,.14);background:rgba(85,246,209,.035);border-radius:14px;color:var(--muted);font-size:12px}.note strong{color:var(--text)}
+    .callout{margin-top:28px;padding:22px;border:1px solid rgba(179,140,255,.18);background:linear-gradient(120deg,rgba(179,140,255,.07),rgba(118,183,255,.04));border-radius:18px}.callout h3{margin:0 0 6px;font-size:22px}.callout p{margin:0;color:var(--muted)}
+    .footer{padding:48px 0 70px;border-top:1px solid var(--line);color:var(--muted2);font-size:12px}.footer-grid{display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:18px}.footcard{padding:18px}.footcard h4{margin:0 0 8px;color:var(--text)}.footlinks{display:flex;gap:12px;flex-wrap:wrap}.footlinks a{color:var(--muted)}.footlinks a:hover{color:var(--text)}
+    .toast{position:fixed;right:20px;bottom:20px;z-index:100;padding:12px 15px;border-radius:12px;background:#0c1624;border:1px solid rgba(85,246,209,.3);color:var(--text);box-shadow:var(--shadow);opacity:0;transform:translateY(10px);transition:.2s ease;pointer-events:none}.toast.show{opacity:1;transform:none}
+    @media (max-width:920px){.links{display:none}.hero,.split{grid-template-columns:1fr}.hero{padding-top:55px}.grid3{grid-template-columns:1fr}.arch{grid-template-columns:1fr}.node:not(:last-child):after{content:"↓";right:auto;left:50%;top:auto;bottom:-20px}.scoreline{grid-template-columns:1fr;justify-items:center}.stats{width:100%}.kpis{grid-template-columns:repeat(2,1fr)}.footer-grid{grid-template-columns:1fr}}
+    @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important;animation:none!important}.orb{display:none}}
   </style>
 </head>
 <body>
-  <nav class="nav"><div class="wrap navin"><a class="brand" href="#top">AI-Nexus <i>Radar</i></a><div class="links"><a href="#pulse">Pulse</a><a href="#jobs">Jobs</a><a href="#architecture">Architecture</a><a href="#healing">Self-Heal</a></div><span class="pill">DEMO-READY / BRIGHT DATA</span></div></nav>
+  <div class="orb a"></div><div class="orb b"></div><div class="orb c"></div>
+  <nav class="nav" aria-label="Primary navigation">
+    <div class="wrap navin">
+      <a class="brand" href="#top" aria-label="AI-Nexus Radar home"><span class="logo">⌁</span><span>AI-Nexus <em>Radar</em></span></a>
+      <div class="links"><a href="#pulse">Pulse</a><a href="#self-heal">Self-Heal</a><a href="#jobs">Jobs</a><a href="#architecture">Architecture</a></div>
+      <span class="topstatus"><i class="dot"></i> DEMO MODE · BRIGHT DATA</span>
+    </div>
+  </nav>
+
   <main id="top">
     <section class="hero wrap">
-      <div><span class="eyebrow">⚡ INTO THE SCRAPE-VERSE · SELF-HEALING</span><h1>Scrapers that<br><span>repair themselves.</span></h1><p>AI-Nexus Radar monitors the YC Jobs ecosystem with Bright Data, detects extraction drift, generates a targeted natural-language repair, and turns recovered data into explainable hiring intelligence.</p><div class="actions"><a class="btn primary" href="#healing">Run self-healing demo</a><a class="btn" href="https://github.com/bhuvan0x/ai-nexus-radar" target="_blank" rel="noreferrer">View source ↗</a></div></div>
-      <div class="hero-card"><div class="score"><div class="ring"><div class="scoretext"><strong id="score">72</strong><small>/ 100</small><div class="high">HIGH</div></div></div><div class="stats"><div class="stat"><div class="stathead"><span>AI Density</span><b>60%</b></div><div class="bar"><i style="width:60%"></i></div></div><div class="stat"><div class="stathead"><span>Market Transparency</span><b>20%</b></div><div class="bar"><i style="width:20%"></i></div></div><div class="stat"><div class="stathead"><span>Freshness</span><b>20%</b></div><div class="bar"><i style="width:20%"></i></div></div><p class="muted" style="font-size:12px;margin:18px 0 0">Explainable Pulse Score · 60/20/20 weighting</p></div></div></div>
+      <div>
+        <span class="eyebrow">INTO THE SCRAPE-VERSE · SELF-HEALING WEB INTELLIGENCE</span>
+        <h1>Scrapers that <span class="gradient">repair themselves.</span></h1>
+        <p><strong>AI-Nexus Radar</strong> monitors the YC Jobs ecosystem with Bright Data, detects extraction drift, generates a targeted natural-language repair, and turns recovered rows into explainable hiring intelligence.</p>
+        <div class="actions">
+          <a class="btn primary" href="#self-heal">▶ Run self-healing demo</a>
+          <a class="btn ghost" href="https://github.com/bhuvan0x/ai-nexus-radar" target="_blank" rel="noreferrer">View GitHub ↗</a>
+        </div>
+        <div class="kpis" aria-label="Project highlights">
+          <div class="kpi"><b>5/5</b><span>required fields monitored</span></div>
+          <div class="kpi"><b>0–100</b><span>explainable Pulse Score</span></div>
+          <div class="kpi"><b>30%</b><span>default drift threshold</span></div>
+          <div class="kpi"><b>CLI</b><span>Bright Data integration</span></div>
+        </div>
+      </div>
+
+      <div class="hero-card" aria-label="Pulse score preview">
+        <div class="hero-head"><span class="micro">HIRING PULSE / YC JOBS</span><span class="mode">demo-safe fixture data</span></div>
+        <div class="scoreline">
+          <div class="ring"><div class="scoretext"><strong id="score">72</strong><small>/ 100</small><div class="level">HIGH</div></div></div>
+          <div class="stats">
+            <div class="signal"><div class="signal-head"><span>AI Density</span><b>60%</b></div><div class="bar"><i style="width:60%"></i></div></div>
+            <div class="signal"><div class="signal-head"><span>Market Transparency</span><b>20%</b></div><div class="bar"><i style="width:20%"></i></div></div>
+            <div class="signal"><div class="signal-head"><span>Freshness</span><b>20%</b></div><div class="bar"><i style="width:20%"></i></div></div>
+            <div class="score-note">Pulse = AI × 0.60 + Transparency × 0.20 + Freshness × 0.20</div>
+          </div>
+        </div>
+      </div>
     </section>
 
-    <section id="pulse" class="section wrap"><span class="tag">01 · Intelligence</span><h2>One score. Three signals.</h2><p>The Pulse Engine turns raw job rows into a transparent 0–100 hiring signal. No black-box claim: every component is inspectable.</p><div class="grid3"><div class="card"><span class="weight">60% WEIGHT</span><div class="metric">AI Density</div><p class="muted">Share of postings containing AI/ML-related technologies, languages or frameworks.</p></div><div class="card"><span class="weight">20% WEIGHT</span><div class="metric">Transparency</div><p class="muted">Share of postings exposing compensation information. A market-data signal, not a maturity claim.</p></div><div class="card"><span class="weight">20% WEIGHT</span><div class="metric">Freshness</div><p class="muted">Share of postings detected within the last 30 days.</p></div></div><div style="margin-top:25px" class="formula">Pulse = AI Density × 0.60 + Transparency × 0.20 + Freshness × 0.20</div></section>
+    <section id="pulse" class="section wrap">
+      <span class="tag">01 · Intelligence</span>
+      <h2>One score. Three transparent signals.</h2>
+      <p class="lead">The Pulse Engine turns structured job rows into a simple 0–100 indicator. Every input is inspectable — no black-box market claim.</p>
+      <div class="grid3">
+        <article class="card"><div class="icon">AI</div><div class="metric">60%</div><h3>AI Density</h3><p class="muted">Share of postings containing AI/ML-related technologies, languages or frameworks.</p><div class="mini">PRIMARY SIGNAL · 60% WEIGHT</div></article>
+        <article class="card"><div class="icon">$</div><div class="metric">20%</div><h3>Market Transparency</h3><p class="muted">Share of postings exposing compensation information. A market-data signal, not a maturity claim.</p><div class="mini">20% WEIGHT</div></article>
+        <article class="card"><div class="icon">↻</div><div class="metric">20%</div><h3>Freshness</h3><p class="muted">Share of postings detected within the last 30 days.</p><div class="mini">20% WEIGHT</div></article>
+      </div>
+      <div class="formula">Pulse = AI Density × 0.60 + Market Transparency × 0.20 + Freshness × 0.20</div>
+    </section>
 
-    <section id="architecture" class="section wrap"><span class="tag">02 · Architecture</span><h2>From changing HTML to useful intelligence.</h2><p>The scraper is only the acquisition layer. The reliability loop is the product.</p><div class="pipeline"><div class="node">🌐<b>YC Jobs</b><small>changing source</small></div><div class="node">🕸️<b>Bright Data</b><small>Scraper Studio</small></div><div class="node">🩺<b>Health Monitor</b><small>drift detection</small></div><div class="node">🧠<b>AI-Flow Heal</b><small>natural language repair</small></div><div class="node">📊<b>Radar</b><small>pulse + dashboard</small></div></div></section>
+    <section id="self-heal" class="section wrap">
+      <span class="tag">02 · Reliability · The Killer Demo</span>
+      <h2>Break it. Detect it. Heal it. Recover it.</h2>
+      <p class="lead">The public demo is deterministic on purpose: judges can reproduce the failure every time. The command shown is the same Bright Data heal mechanism used by the CLI integration.</p>
+      <div class="split">
+        <div class="terminal" aria-live="polite">
+          <div class="termhead"><span class="traffic"><i></i><i></i><i></i></span> HEALTH MONITOR / EXTRACTION DRIFT</div>
+          <div class="terminalbody" id="terminal">Ready. Click <span class="cyan">RUN SELF-HEAL DEMO</span> to start the failure → recovery sequence.</div>
+        </div>
+        <div class="proof">
+          <div class="proofhead"><span class="micro">RECOVERY PIPELINE</span><span id="pipeline-state" class="state">WAITING</span></div>
+          <h3>Targeted repair, not selector surgery.</h3>
+          <p class="muted">When one field degrades, the system can produce a specific natural-language repair instead of asking a developer to rewrite selectors by hand.</p>
+          <div class="step-list">
+            <div class="step"><span class="stepnum">1</span><div><b>Healthy extraction</b><small>5 required fields available</small></div><span id="s1" class="state ok">READY</span></div>
+            <div class="step"><span class="stepnum">2</span><div><b>Drift detected</b><small><code>salary_range</code> falls below threshold</small></div><span id="s2" class="state">WAITING</span></div>
+            <div class="step"><span class="stepnum">3</span><div><b>Repair generated</b><small>Bright Data heal prompt targets the broken field</small></div><span id="s3" class="state">WAITING</span></div>
+            <div class="step"><span class="stepnum">4</span><div><b>Recovery verified</b><small>complete schema restored</small></div><span id="s4" class="state">WAITING</span></div>
+          </div>
+          <div class="controls"><button class="btn primary" id="run">▶ Run self-heal demo</button><button class="btn small" id="reset">Reset</button></div>
+          <div class="progress" aria-hidden="true"><i id="progress"></i></div>
+          <div class="statusline"><span id="demo-status">Status: waiting</span><span id="demo-time">0.0s</span></div>
+          <div class="copybox"><code id="heal-command">npx -p @brightdata/cli bdata scraper heal c_msyndhlihcuensmoe "The salary_range field is returning empty values. Fix the scraper to extract compensation information from each job listing while preserving the complete five-field schema." --pretty --json --timeout 600</code></div>
+          <div class="controls"><button class="btn small" id="copy">Copy heal command</button></div>
+        </div>
+      </div>
+    </section>
 
-    <section id="healing" class="section wrap"><span class="tag">03 · Reliability</span><h2>Break it. Detect it. Heal it. Recover it.</h2><p>This is the demo judges should remember. The browser demo uses a deterministic failure so the self-healing story is reproducible; the generated command is the same repair mechanism used by the CLI integration.</p><div class="demo"><div class="terminal"><div class="termhead">HEALTH MONITOR / EXTRACTION DRIFT</div><div class="term" id="terminal">Ready. Click <span class="cyan">RUN SELF-HEAL DEMO</span> to start.</div></div><div class="card"><span class="weight">RECOVERY PIPELINE</span><h3 style="font-size:25px;margin:8px 0">Targeted repair</h3><p class="muted">Instead of rewriting selectors by hand, the monitor identifies the field that degraded and produces a focused Bright Data heal prompt.</p><div class="demo-controls"><button class="btn primary" id="run">Run self-heal demo</button><button class="btn" id="reset">Reset</button></div><div class="progress"><i id="progress"></i></div><p id="demo-status" class="muted" style="font-size:12px;margin-top:12px">Status: waiting</p></div></div></section>
+    <section id="jobs" class="section wrap">
+      <span class="tag">03 · Structured Output</span>
+      <h2>Recovered job intelligence.</h2>
+      <p class="lead">Example enriched rows matching the collector schema. The public UI never embeds a Bright Data API key; production delivery belongs behind a server-side endpoint.</p>
+      <div class="jobs">
+        <table>
+          <thead><tr><th>Company</th><th>Role</th><th>Tech stack</th><th>Compensation</th><th>Posted</th><th>AI</th></tr></thead>
+          <tbody>
+            <tr><td class="company">CityFurnish</td><td>Data Analytics AI Specialist</td><td>Python · SQL · AI · ML</td><td>£60K–£90K GBP</td><td>3 days ago</td><td><span class="badge ai">AI</span></td></tr>
+            <tr><td class="company">Corgi Insurance</td><td>Quantitative Associate</td><td>R · Go · PostgreSQL</td><td>£100K–£200K GBP</td><td>2 months</td><td><span class="badge neutral">—</span></td></tr>
+            <tr><td class="company">Neuron Labs</td><td>ML Engineer — LLM Fine-Tuning</td><td>PyTorch · GPT · LangChain · RAG</td><td>$180K–$250K + equity</td><td>1 day ago</td><td><span class="badge ai">AI</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
 
-    <section id="jobs" class="section wrap"><span class="tag">04 · Data</span><h2>Recovered job feed.</h2><p>Example enriched rows matching the collector schema. Production credentials stay server-side; this public dashboard never embeds a Bright Data API key.</p><div class="jobs"><table><thead><tr><th>Company</th><th>Role</th><th>Tech stack</th><th>Compensation</th><th>AI</th></tr></thead><tbody><tr><td>CityFurnish</td><td>Data Analytics AI Specialist</td><td>Python · SQL · AI · ML</td><td>£60K–£90K</td><td class="ai">AI</td></tr><tr><td>Corgi Insurance</td><td>Quantitative Associate</td><td>R · Go · PostgreSQL</td><td>£100K–£200K</td><td>—</td></tr><tr><td>Neuron Labs</td><td>ML Engineer — LLM Fine-Tuning</td><td>PyTorch · GPT · RAG</td><td>$180K–$250K + equity</td><td class="ai">AI</td></tr></tbody></table></div></section>
+    <section id="architecture" class="section wrap">
+      <span class="tag">04 · Architecture</span>
+      <h2>From changing HTML to useful intelligence.</h2>
+      <p class="lead">The scraper is the acquisition layer. The reliability loop is the product.</p>
+      <div class="arch">
+        <div class="node"><div class="node-icon">🌐</div><b>YC Jobs</b><small>changing source</small></div>
+        <div class="node"><div class="node-icon">🕸️</div><b>Bright Data</b><small>Scraper Studio + CLI</small></div>
+        <div class="node"><div class="node-icon">🩺</div><b>Health Monitor</b><small>gap + schema drift</small></div>
+        <div class="node"><div class="node-icon">🧠</div><b>AI-Flow Heal</b><small>natural-language repair</small></div>
+        <div class="node"><div class="node-icon">📊</div><b>Radar</b><small>Pulse + intelligence</small></div>
+      </div>
+      <div class="note"><strong>Why this architecture matters:</strong> HTML and CSS can change. A reliability layer that observes extraction quality can detect those changes before bad data quietly reaches downstream analysis.</div>
+    </section>
 
-    <section class="section wrap"><span class="tag">05 · Reliability metrics</span><h2>Health is observable.</h2><div class="grid3"><div class="card"><div class="metric">5/5</div><p class="muted">Required schema fields monitored on every row.</p></div><div class="card"><div class="metric">30%</div><p class="muted">Default missing-field threshold before a repair recommendation is emitted.</p></div><div class="card"><div class="metric">2</div><p class="muted">Exit states for automation: healthy or drift detected.</p></div></div></section>
+    <section class="section wrap">
+      <span class="tag">05 · Judge Proof</span>
+      <h2>Built to survive the demo.</h2>
+      <div class="grid3">
+        <article class="card"><div class="icon">✓</div><h3>Schema checks</h3><p class="muted">Required fields are explicitly monitored instead of assuming the scraper always returns the same structure.</p></article>
+        <article class="card"><div class="icon">↯</div><h3>Retry logic</h3><p class="muted">The CLI client uses bounded exponential backoff with jitter for transient Bright Data/API failures.</p></article>
+        <article class="card"><div class="icon">⌘</div><h3>Testable core</h3><p class="muted">Health logic is exposed as reusable functions and covered by Node's built-in test runner.</p></article>
+      </div>
+      <div class="callout"><h3>The honest demo contract</h3><p>This public page uses deterministic fixture data for the interactive presentation. The real Bright Data integration, credentials, collector and self-healing workflow stay in the repository/CLI layer.</p></div>
+    </section>
   </main>
-  <footer class="footer"><div class="wrap"><b style="color:var(--text)">AI-Nexus Radar</b> · Self-Healing Web Intelligence<br>Built for the Into the Scrape-Verse hackathon · Bright Data + Node.js<br><span>Public demo data is intentionally separated from production credentials.</span></div></footer>
-  <div class="toast" id="toast"></div>
+
+  <footer class="footer">
+    <div class="wrap footer-grid">
+      <div class="footcard"><h4>AI-Nexus Radar</h4><div>Self-healing web intelligence for the <em>Into the Scrape-Verse</em> hackathon.</div></div>
+      <div class="footcard"><h4>Stack</h4><div>Bright Data Scraper Studio · Node.js · Vercel-ready static frontend</div></div>
+      <div class="footcard"><h4>Links</h4><div class="footlinks"><a href="https://github.com/bhuvan0x/ai-nexus-radar" target="_blank" rel="noreferrer">GitHub ↗</a><a href="https://www.ycombinator.com/jobs" target="_blank" rel="noreferrer">YC Jobs ↗</a><a href="https://brightdata.com" target="_blank" rel="noreferrer">Bright Data ↗</a></div></div>
+    </div>
+  </footer>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
   <script>
-    const terminal=document.getElementById('terminal'),progress=document.getElementById('progress'),status=document.getElementById('demo-status'),run=document.getElementById('run');
-    const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-    async function demo(){run.disabled=true;progress.style.width='5%';status.textContent='Status: scanning extraction health';terminal.innerHTML='<span class="cyan">$ health-monitor</span>\n\nScanning 5 required fields across 5 postings...';await sleep(650);progress.style.width='25%';terminal.innerHTML+='<span class="warn">\n\n⚠ DRIFT DETECTED</span>\ntech_stack_tags: 4/5 empty (80%)\nsalary_range: 3/5 empty (60%)';status.textContent='Status: drift detected';await sleep(700);progress.style.width='48%';terminal.innerHTML+='<span class="cyan">\n\n→ Selecting highest-confidence repair target...\n→ field: tech_stack_tags</span>';await sleep(650);progress.style.width='68%';terminal.innerHTML+='<span class="cyan">\n\n→ Generating Bright Data heal prompt...\n\"Fix the tech_stack_tags field to extract technologies, languages, frameworks and tools from each listing while preserving the complete schema.\"</span>';status.textContent='Status: repair generated';await sleep(700);progress.style.width='86%';terminal.innerHTML+='<span class="warn">\n\n→ Preview approved\n→ Scraper repair applied</span>';await sleep(700);progress.style.width='100%';terminal.innerHTML+='<span class="ok">\n\n✓ RECOVERED\ntech_stack_tags: 5/5 populated\nhealth score: 100%\n\n→ Pulse Engine can resume safely.</span>';status.textContent='Status: recovered · pipeline healthy';run.disabled=false;document.getElementById('toast').textContent='Self-healing cycle complete';document.getElementById('toast').style.display='block';setTimeout(()=>document.getElementById('toast').style.display='none',2200)}
-    run.addEventListener('click',demo);document.getElementById('reset').addEventListener('click',()=>{terminal.innerHTML='Ready. Click <span class="cyan">RUN SELF-HEAL DEMO</span> to start.';progress.style.width='0';status.textContent='Status: waiting';run.disabled=false});
+    const $ = s => document.querySelector(s);
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    const terminal = $('#terminal');
+    const progress = $('#progress');
+    const run = $('#run');
+    const reset = $('#reset');
+    const status = $('#demo-status');
+    const time = $('#demo-time');
+    const pipeState = $('#pipeline-state');
+    const stepStates = [$('#s1'),$('#s2'),$('#s3'),$('#s4')];
+    let demoRunning = false;
+
+    function setState(index, text, kind='') {
+      const el = stepStates[index];
+      el.textContent = text;
+      el.className = 'state ' + kind;
+    }
+    function logLine(text, cls='') {
+      terminal.insertAdjacentHTML('beforeend', `\n<span class="${cls}">${text}</span>`);
+      terminal.scrollTop = terminal.scrollHeight;
+    }
+    function resetDemo(){
+      demoRunning=false; run.disabled=false; progress.style.width='0%'; status.textContent='Status: waiting'; time.textContent='0.0s'; pipeState.textContent='WAITING'; pipeState.className='state';
+      setState(0,'READY','ok'); setState(1,'WAITING'); setState(2,'WAITING'); setState(3,'WAITING');
+      terminal.innerHTML='Ready. Click <span class="cyan">RUN SELF-HEAL DEMO</span> to start the failure → recovery sequence.';
+    }
+    async function demo(){
+      if(demoRunning) return; demoRunning=true; run.disabled=true;
+      const started=performance.now(); const tick=()=>{time.textContent=((performance.now()-started)/1000).toFixed(1)+'s'}; const timer=setInterval(tick,100);
+      pipeState.textContent='RUNNING'; pipeState.className='state warn';
+      terminal.textContent='';
+      progress.style.width='12%'; status.textContent='Status: baseline healthy';
+      logLine('$ health-monitor','cyan'); logLine('Scanning 5 required fields across 5 postings...'); await sleep(650);
+      logLine('[OK] company_name   5/5 populated','ok'); logLine('[OK] job_title       5/5 populated','ok'); logLine('[OK] posted_date     5/5 populated','ok'); await sleep(500);
+      progress.style.width='32%'; status.textContent='Status: simulating extraction drift'; setState(1,'DETECTED','warn');
+      logLine('[WARN] salary_range  0/5 populated','warn'); logLine('Drift threshold crossed: 100% missing'); await sleep(650);
+      progress.style.width='52%'; status.textContent='Status: generating targeted repair'; setState(2,'GENERATED','ok');
+      logLine('Generating field-specific Bright Data heal prompt...','cyan'); logLine('Preserve existing fields + repair salary_range'); await sleep(750);
+      progress.style.width='76%'; status.textContent='Status: repair preview verified';
+      logLine('Preview result: salary_range recovered','violet'); logLine('Schema check: 5/5 required fields present','ok'); await sleep(650);
+      progress.style.width='100%'; status.textContent='Status: recovery verified'; setState(3,'RECOVERED','ok'); pipeState.textContent='RECOVERED'; pipeState.className='state ok';
+      logLine('Recovery complete. Downstream Pulse Engine can resume.','ok'); clearInterval(timer); time.textContent=((performance.now()-started)/1000).toFixed(1)+'s'; run.disabled=false; demoRunning=false;
+    }
+    run.addEventListener('click',demo); reset.addEventListener('click',resetDemo);
+    $('#copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('#heal-command').textContent); const t=$('#toast');t.textContent='Heal command copied';t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1800)}catch{}});
+    document.querySelectorAll('a[href^="#"]').forEach(a=>a.addEventListener('click',()=>{document.querySelector('.nav')?.blur()}));
+    resetDemo();
   </script>
 </body>
 </html>
