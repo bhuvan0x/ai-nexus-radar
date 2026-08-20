@@ -1,67 +1,18 @@
 /**
  * AI-Nexus Radar — Health Monitor
- * =================================
- * Inspects scraped job data for gaps (empty / missing fields).
- * When a gap is found, it prints the EXACT self-heal CLI command
- * to repair that specific field in the collector.
- *
- * Usage:
- *   node src/health-monitor.js < path/to/scrape-output.json
- *   node src/health-monitor.js  (reads from stdout of a fresh scrape)
- *
- * Integration: call `scan()` from your dashboard cron and alert on
- * any returned `recommendations[]`.
+ * Detects extraction drift and generates field-specific Bright Data heal prompts.
  */
 
 const COLLECTOR_ID = process.env.COLLECTOR_ID || "c_msyndhlihcuensmoe";
 
-// ---------------------------------------------------------------------------
-// Field metadata — used to generate self-heal prompts
-// ---------------------------------------------------------------------------
-
 const FIELDS = [
-  {
-    key: "company_name",
-    label: "Company Name",
-    description: "the name of the company posting the job",
-    healPrompt: (field) =>
-      `The "${field}" field is returning empty values. Fix the scraper to extract the company name from each job listing on the page.`,
-  },
-  {
-    key: "job_title",
-    label: "Job Title",
-    description: "the title of the job posting",
-    healPrompt: (field) =>
-      `The "${field}" field is returning empty values. Fix the scraper to extract the job title from each listing.`,
-  },
-  {
-    key: "salary_range",
-    label: "Salary Range",
-    description: "any salary, compensation, pay range or equity information mentioned in the job posting",
-    healPrompt: (field) =>
-      `The "${field}" field is returning empty values. Fix the scraper to extract any salary, compensation, or pay range mentioned in each job posting.`,
-  },
-  {
-    key: "tech_stack_tags",
-    label: "Tech Stack Tags",
-    description: "a list of technologies, programming languages, frameworks or tools mentioned in the job description",
-    healPrompt: (field) =>
-      `The "${field}" field is returning empty values. Fix the scraper to extract a list of technologies, languages, frameworks, and tools mentioned in each job posting.`,
-  },
-  {
-    key: "posted_date",
-    label: "Posted Date",
-    description: "the date when the job was posted",
-    healPrompt: (field) =>
-      `The "${field}" field is returning empty values. Fix the scraper to extract the date when each job was posted.`,
-  },
+  { key: "company_name", label: "Company Name", description: "the name of the company posting the job" },
+  { key: "job_title", label: "Job Title", description: "the title of the job posting" },
+  { key: "salary_range", label: "Salary Range", description: "salary, compensation, pay range or equity information mentioned in the job posting" },
+  { key: "tech_stack_tags", label: "Tech Stack Tags", description: "technologies, programming languages, frameworks or tools mentioned in the job description" },
+  { key: "posted_date", label: "Posted Date", description: "the date when the job was posted" }
 ];
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/** true when a value is missing / empty / placeholder */
 function isEmpty(value) {
   if (value === null || value === undefined) return true;
   if (typeof value === "string") return value.trim() === "" || value.trim().toLowerCase() === "n/a";
@@ -69,41 +20,42 @@ function isEmpty(value) {
   return false;
 }
 
-/**
- * Count how many postings have an empty value for each field.
- * Returns a map: fieldKey → { emptyCount, total }
- */
-function countGaps(jobs) {
-  const gaps = {};
-  for (const field of FIELDS) {
-    const emptyCount = jobs.filter((job) => isEmpty(job[field.key])).length;
-    gaps[field.key] = { emptyCount, total: jobs.length, field };
-  }
-  return gaps;
+function unwrapRows(raw) {
+  if (Array.isArray(raw)) return raw;
+  return raw?.data || raw?.results || raw?.items || [];
 }
 
-// ---------------------------------------------------------------------------
-// Core scan
-// ---------------------------------------------------------------------------
+function healPrompt(field) {
+  return `The "${field.key}" field is returning empty values. Fix the scraper to extract ${field.description} from each job listing. Preserve all existing fields and return the complete schema.`;
+}
 
-/**
- * Scan scraped job data for gaps and produce recommendations.
- *
- * @param {Array<object>}  jobs          — raw Bright Data scrape rows
- * @param {object}         [opts]
- * @param {number}         [opts.threshold=0.3]  — alert if >30% of rows are empty
- * @returns {{ gaps, recommendations, healthy, summary }}
- */
-function scan(jobs, opts = {}) {
+function countGaps(jobs) {
+  return Object.fromEntries(FIELDS.map(field => {
+    const emptyCount = jobs.filter(job => isEmpty(job[field.key])).length;
+    return [field.key, {
+      emptyCount,
+      total: jobs.length,
+      ratio: jobs.length ? emptyCount / jobs.length : 1,
+      field
+    }];
+  }));
+}
+
+function scan(input, opts = {}) {
+  const jobs = unwrapRows(input);
   const threshold = opts.threshold ?? 0.3;
-  const total = jobs.length;
 
-  if (total === 0) {
+  if (!jobs.length) {
     return {
-      gaps: {},
-      recommendations: [{ severity: "critical", message: "No job rows returned — the collector may be broken or the target page changed structure.", command: "" }],
       healthy: false,
-      summary: "0 jobs returned — investigate immediately.",
+      healthScore: 0,
+      gaps: {},
+      recommendations: [{
+        severity: "critical",
+        message: "No job rows returned — the collector may be broken or the target structure may have changed.",
+        command: `npx -p @brightdata/cli bdata scraper heal ${COLLECTOR_ID} "The scraper returned zero job rows. Inspect the target and repair the collector while preserving the required five-field schema." --pretty --json --timeout 600`
+      }],
+      summary: "0 jobs returned — investigate immediately."
     };
   }
 
@@ -111,108 +63,80 @@ function scan(jobs, opts = {}) {
   const recommendations = [];
 
   for (const [key, info] of Object.entries(gaps)) {
-    const { emptyCount, total: n, field } = info;
-    const ratio = emptyCount / n;
-
-    if (ratio >= threshold) {
-      const cmd = `npx -p @brightdata/cli bdata scraper heal ${COLLECTOR_ID} "${field.healPrompt(field.key)}" --pretty --json --timeout 600`;
+    if (info.ratio >= threshold) {
       recommendations.push({
-        field: field.label,
+        field: info.field.label,
         key,
-        emptyCount,
-        total: n,
-        ratio: ratio.toFixed(2),
-        severity: ratio > 0.7 ? "critical" : "warning",
-        message: `${field.label} is empty in ${emptyCount}/${n} postings (${ratio.toFixed(2)}). The site structure may have changed.`,
-        command: cmd,
+        emptyCount: info.emptyCount,
+        total: info.total,
+        ratio: Number(info.ratio.toFixed(3)),
+        severity: info.ratio >= 0.7 ? "critical" : "warning",
+        message: `${info.field.label} is empty in ${info.emptyCount}/${info.total} postings (${Math.round(info.ratio * 100)}%).`,
+        prompt: healPrompt(info.field),
+        command: `npx -p @brightdata/cli bdata scraper heal ${COLLECTOR_ID} "${healPrompt(info.field)}" --pretty --json --timeout 600`
       });
     }
   }
 
+  const averageCompleteness = FIELDS.reduce((sum, field) => {
+    return sum + (1 - gaps[field.key].ratio);
+  }, 0) / FIELDS.length;
+  const healthScore = Math.round(averageCompleteness * 100);
   const healthy = recommendations.length === 0;
-  const summary = healthy
-    ? `All ${FIELDS.length} fields populated across ${total} postings. ✅`
-    : `${recommendations.length} field(s) need attention across ${total} postings.`;
 
-  return { gaps, recommendations, healthy, summary };
+  return {
+    healthy,
+    healthScore,
+    jobsScanned: jobs.length,
+    gaps,
+    recommendations,
+    summary: healthy
+      ? `All ${FIELDS.length} fields are above the ${Math.round((1 - threshold) * 100)}% completeness target across ${jobs.length} postings.`
+      : `${recommendations.length} field(s) crossed the drift threshold across ${jobs.length} postings.`
+  };
 }
 
-// ---------------------------------------------------------------------------
-// CLI entry point — reads JSON from stdin or argv file
-// ---------------------------------------------------------------------------
-
-function loadJobs() {
-  // Try reading from a file path passed as argv[2]
+async function loadJobs() {
   const arg = process.argv[2];
   if (arg) {
     const fs = require("fs");
-    try {
-      return JSON.parse(fs.readFileSync(arg, "utf-8"));
-    } catch (err) {
-      console.error(`❌  Cannot read file: ${arg}`, err.message);
-      process.exit(1);
-    }
+    return unwrapRows(JSON.parse(fs.readFileSync(arg, "utf8")));
   }
 
-  // Otherwise read from stdin (pipe)
   const chunks = [];
   return new Promise((resolve, reject) => {
-    process.stdin.on("data", (c) => chunks.push(c));
+    process.stdin.on("data", chunk => chunks.push(chunk));
     process.stdin.on("end", () => {
-      const raw = Buffer.concat(chunks).toString("utf-8").trim();
-      if (!raw) { resolve([]); return; }
-      try {
-        const parsed = JSON.parse(raw);
-        resolve(Array.isArray(parsed) ? parsed : (parsed.data || parsed.results || parsed.items || []));
-      } catch (err) {
-        reject(new Error(`Invalid JSON on stdin: ${err.message}`));
-      }
+      const raw = Buffer.concat(chunks).toString("utf8").trim();
+      if (!raw) return resolve([]);
+      try { resolve(unwrapRows(JSON.parse(raw))); }
+      catch (error) { reject(new Error(`Invalid JSON on stdin: ${error.message}`)); }
     });
     process.stdin.on("error", reject);
   });
 }
 
 async function main() {
-  console.log(`🩺  Health Monitor — Collector ${COLLECTOR_ID}`);
-  console.log("─".repeat(56));
+  const jobs = await loadJobs();
+  const result = scan(jobs);
+  console.log(JSON.stringify(result, null, 2));
 
-  let jobs;
-  try {
-    jobs = await loadJobs();
-  } catch (err) {
-    console.error("Failed to load jobs:", err.message);
-    process.exit(1);
-  }
-
-  console.log(`📦  Jobs scanned: ${jobs.length}`);
-
-  const { gaps, recommendations, healthy, summary } = scan(jobs);
-
-  console.log("\n📋  Summary:");
-  console.log(`   ${summary}`);
-
-  if (recommendations.length) {
-    console.log("\n🚨  Recommendations:");
-    for (const r of recommendations) {
-      console.log(`\n   [${r.severity.toUpperCase()}]  ${r.message}`);
-      console.log(`   Field:     ${r.field}  (${r.key})`);
-      console.log(`   Empty:     ${r.emptyCount}/${r.total}  (${r.ratio})`);
-      console.log(`   🔧  Run this to self-heal:`);
-      console.log(`   ${r.command}`);
+  if (!result.healthy) {
+    for (const recommendation of result.recommendations) {
+      console.error(`[${recommendation.severity.toUpperCase()}] ${recommendation.message}`);
+      console.error(`Heal: ${recommendation.command}`);
     }
-  } else {
-    console.log("\n✅  All fields healthy — no action needed.");
+    process.exitCode = 2;
   }
 
-  return { gaps, recommendations, healthy, summary };
+  return result;
 }
 
-// Run directly when invoked as a script
 if (require.main === module) {
-  main().catch((err) => {
-    console.error("Fatal:", err);
+  main().catch(error => {
+    console.error(`Health monitor failed: ${error.message}`);
     process.exit(1);
   });
 }
 
-module.exports = { scan, FIELDS, isEmpty };
+module.exports = { FIELDS, countGaps, healPrompt, isEmpty, scan, unwrapRows };
