@@ -1,226 +1,164 @@
-# AI-Nexus Radar  🌊
-### *Into the Scrape-Verse* Hackathon — NVIDIA DGX Spark Entry
+# AI-Nexus Radar 🌊
 
-> **Self-healing scraper system** that monitors Y Combinator's Job Board to extract emerging tech trends, salary data, tech-stack signals, and company descriptions.
+### Self-Healing Web Intelligence for the *Into the Scrape-Verse* Hackathon
 
----
+> **Websites change. Scrapers break. AI-Nexus Radar detects extraction drift, generates a targeted natural-language repair, and turns recovered data into hiring intelligence.**
 
-## Project Overview
-
-The **AI-Nexus Radar** is a self-healing web scraper built on **Bright Data's Scraper Studio**, designed to track the pulse of AI and emerging-tech hiring trends from Y Combinator's job board. It extends and heals itself in-place when site structure changes — no manual CSS rewriting required.
+[Live Demo](https://ai-nexus-radar.vercel.app/) · [GitHub](https://github.com/bhuvan0x/ai-nexus-radar)
 
 ---
 
-## Architecture
+## Why this exists
 
-```
-┌─────────────────────────────────────────────────────┐
-│              AI-Nexus Radar Dashboard               │
-│  (Pulse Score, AI-tagged postings, salary heatmaps) │
-└───────────────────────┬─────────────────────────────┘
-                        │  enriched JSON
-┌───────────────────────▼─────────────────────────────┐
-│              nexus-radar.js  (Phase 4)              │
-│   fetch → computePulse() → Sentiment Score (0–100) │
-└───────────────────────┬─────────────────────────────┘
-                        │  raw scrape rows
-┌───────────────────────▼─────────────────────────────┐
-│          Bright Data Collector  c_msyndhlihcuensmoe │
-│                                                     │
-│   Fields (5):                                        │
-│   • company_name        (self-healed)               │
-│   • job_title            (baseline)                  │
-│   • salary_range        (self-healed)               │
-│   • tech_stack_tags     (self-healed)               │
-│   • posted_date         (self-healed)               │
-└───────────────────────┬─────────────────────────────┘
-                        │  plain-language descriptions
-┌───────────────────────▼─────────────────────────────┐
-│         Bright Data Scraper Studio  (AI-Flow)       │
-│         Self-Heal Loop  (Phase 3)                   │
-└─────────────────────────────────────────────────────┘
+Traditional scrapers assume that a website's structure stays stable. When selectors or layouts change, extraction silently degrades.
+
+AI-Nexus Radar adds a reliability loop:
+
+```text
+YC Jobs
+   ↓
+Bright Data Scraper Studio
+   ↓
+Structured 5-field dataset
+   ↓
+Health Monitor
+   ↓
+Extraction drift detected?
+   ├── No → Pulse Engine → Dashboard
+   └── Yes → targeted heal prompt → Bright Data AI-Flow
+                         ↓
+                    repaired scraper
+                         ↓
+                    verify + recover
 ```
 
----
+The project uses Bright Data's collector as the scraping layer and keeps the repair instruction in plain language so it is resilient to implementation-level HTML/CSS changes.
 
-## Phase 1 — Authentication & Initialization ✅
+## Core schema
 
-| Step | Command | Result |
-|------|---------|--------|
-| Install & version | `npx -p @brightdata/cli bdata --version` | `0.3.5` |
-| Auth (API key) | `BRIGHTDATA_API_KEY=... bdata ...` | ✅ Key verified via `/discover` endpoint |
+| Field | Purpose |
+|---|---|
+| `company_name` | Company posting the role |
+| `job_title` | Job title |
+| `salary_range` | Salary / compensation / equity information |
+| `tech_stack_tags` | Technologies, languages, frameworks and tools |
+| `posted_date` | Posting date / relative age |
 
-> **Note:** The CLI expects `BRIGHTDATA_API_KEY` (not `BRIGHT_DATA_API_KEY`). Authentication is done via the environment variable — no browser login needed.
+## Self-healing proof
 
----
-
-## Phase 2 — Minimal Baseline Collector ✅
-
-**Target:** `https://www.ycombinator.com/jobs`
-
-**Collector ID:** `c_msyndhlihcuensmoe`
-
-**Creation command:**
-```bash
-npx -p @brightdata/cli bdata scraper create \
-  "https://www.ycombinator.com/jobs" \
-  "Extract for each job listing: company_name and job_title." \
-  --name ai-nexus-radar-minimal \
-  --pretty --json --timeout 600
-```
-
-**Baseline run output (6 job postings):**
-```json
-[
-  { "job_title": "Data Analytics AI Specialist", "product_page_url": "..." },
-  { "job_title": "Quantitative Associate",         "product_page_url": "..." },
-  { "job_title": "VP, Credit Card Partnerships",  "product_page_url": "..." },
-  { "job_title": "Accountant",                    "product_page_url": "..." },
-  { "job_title": "Finance Manager — Chartered Accountant", "product_page_url": "..." },
-  { "job_title": "Head of Finance",              "product_page_url": "..." }
-]
-```
-
----
-
-## Phase 3 — Self-Healing Loop ✅✅✅
-
-**The heal prompt (plain-language — survives CSS changes):**
-> *"Extend the existing scraper to also extract for each job listing: 1) company_name — the name of the company posting the job, 2) salary_range — any salary, compensation, pay range or equity information mentioned in the job posting, 3) tech_stack_tags — a list of technologies, programming languages, frameworks or tools mentioned in the job description, 4) posted_date — the date when the job was posted. Return all five fields together."*
-
-**Approval envelope (preview_result) — all 5 fields:**
-```json
-{
-  "company_name": "Corgi Insurance",
-  "job_title": "Quantitative Associate",
-  "salary_range": "£100K - £200K GBP",
-  "tech_stack_tags": ["R", "Go", "4 more items"],
-  "posted_date": "2 months"
-}
-```
-
-| Step | Command |
-|------|---------|
-| Trigger heal | `npx -p @brightdata/cli bdata scraper heal c_msyndhlihcuensmoe "<prompt>" --pretty --json --timeout 600` |
-| Approve | `npx -p @brightdata/cli bdata scraper approve c_msyndhlihcuensmoe` |
-| Verify | `npx -p @brightdata/cli bdata scraper run c_msyndhlihcuensmoe "https://www.ycombinator.com/jobs" --pretty --json` |
-
----
-
-## Phase 4 — Node.js Integration Script (Sentiment Pulse Engine)
-
-**File:** `src/nexus-radar.js`
-
-### What it does
-
-1. Calls the Bright Data collector `c_msyndhlihcuensmoe` via the API
-2. Transforms raw JSON into a **Sentiment Pulse Score (0–100)** using three signals:
-
-| Signal | Weight | Logic |
-|--------|--------|-------|
-| **AI Density** | 60% | % of postings whose `tech_stack_tags` contain AI/ML keywords |
-| **Salary Signal** | 20% | % of postings that expose a `salary_range` |
-| **Freshness** | 20% | % of postings from the last 30 days |
-
-3. Maps the score to a level: **HIGH (≥70)**, **MEDIUM (≥40)**, **LOW (<40)**
-
-### Quick start
+The collector was first created with a minimal schema and then extended through a Bright Data heal operation. The repository preserves the Phase 2 creation artifact and Phase 3 heal preview as evidence.
 
 ```bash
-# From the project root
-export BRIGHTDATA_API_KEY="<your-key-here>"
-node src/nexus-radar.js
+npx -p @brightdata/cli bdata scraper heal c_msyndhlihcuensmoe "Extend the existing scraper to extract company_name, salary_range, tech_stack_tags and posted_date while preserving job_title." --pretty --json --timeout 600
+
+npx -p @brightdata/cli bdata scraper approve c_msyndhlihcuensmoe
+
+npx -p @brightdata/cli bdata scraper run c_msyndhlihcuensmoe "https://www.ycombinator.com/jobs" --pretty --json
 ```
 
-### Sample output
-```
-🎯  Target:    https://www.ycombinator.com/jobs
-📡  Collector: c_msyndhlihcuensmoe
-──────────────────────────────────────────────────────────
-📊  PULSE SCORE: 72/100  →  HIGH
-   Breakdown:
-   • AI Density : 60.0%  (3 of 5 postings)
-   • Salary Sig : 20.0%
-   • Freshness  : 20.0%
-──────────────────────────────────────────────────────────
-✨  AI-tagged postings (3):
-   → Data Analytics AI Specialist  @  CityFurnish
-     tags: AI, Python
-   → Quantitative Associate  @  Corgi Insurance
-     tags: R, Go
-```
+### Drift detection
 
----
+`src/health-monitor.js` checks every required field across every returned row. A field crossing the default 30% missing-data threshold produces:
 
-## Phase 5 — Health Monitor
+- a health score
+- severity (`warning` / `critical`)
+- the affected field
+- a targeted natural-language repair prompt
+- the exact Bright Data heal command
 
-**File:** `src/health-monitor.js`
-
-### What it does
-
-Scans scraped job data for **empty / missing fields** across all 5 schema fields. When it detects a gap above a configurable threshold (default: 30%), it prints the **exact self-heal CLI command** to repair that specific field.
-
-### Usage
+It also returns machine-readable JSON so a scheduled job or dashboard can consume the result.
 
 ```bash
-# Pipe a fresh scrape JSON into the monitor
-npx -p @brightdata/cli bdata scraper run c_msyndhlihcuensmoe "https://www.ycombinator.com/jobs" \
-  | node src/health-monitor.js
-
-# Or pass a saved JSON file
 node src/health-monitor.js scrape-output.json
 ```
 
-### Sample output (gap detected)
+Exit code `2` means extraction drift was detected; `0` means the dataset is healthy.
+
+## Pulse Engine
+
+`src/nexus-radar.js` transforms recovered job data into a 0–100 hiring Pulse Score:
+
+| Signal | Weight | Meaning |
+|---|---:|---|
+| **AI Density** | 60% | Share of postings with AI/ML-related technologies |
+| **Market Transparency** | 20% | Share of postings exposing compensation information |
+| **Freshness** | 20% | Share of postings from the last 30 days |
+
+The score is intentionally simple and explainable:
+
+```text
+Pulse = AI Density × 0.60
+      + Market Transparency × 0.20
+      + Freshness × 0.20
 ```
-🩺  Health Monitor — Collector c_msyndhlihcuensmoe
-──────────────────────────────────────────────────────────
-📦  Jobs scanned: 5
 
-📋  Summary:
-   3 field(s) need attention across 5 postings.
+Levels: **HIGH ≥ 70**, **MEDIUM ≥ 40**, **LOW < 40**.
 
-🚨  Recommendations:
+## Reliability features
 
-   [WARNING]  Salary Range is empty in 5/5 postings (1.00).
-   Field:     Salary Range  (salary_range)
-   Empty:     5/5  (1.00)
-   🔧  Run this to self-heal:
-   npx -p @brightdata/cli bdata scraper heal c_msyndhlihcuensmoe \
-     "The \"salary_range\" field is returning empty values. Fix the scraper to extract any salary, compensation, or pay range mentioned in each job posting." \
-     --pretty --json --timeout 600
+- Exponential backoff + jitter for retryable Bright Data/API failures.
+- Retry handling for rate limits and common transient HTTP failures.
+- Graceful handling of Bright Data response wrappers (`data`, `results`, `items`).
+- Missing-field detection across the complete schema.
+- Field-specific heal prompts instead of generic repair instructions.
+- Machine-readable health output for automation.
+- No API credentials stored in source code.
+
+## Run locally
+
+Requires Node.js 18+ for native `fetch`.
+
+```bash
+export BRIGHTDATA_API_KEY="<your-key>"
+node src/nexus-radar.js
 ```
 
----
+For the health monitor:
 
-## Project Files
-
+```bash
+node src/health-monitor.js scrape-output.json
 ```
-/home/user/
-├── README.md                    ← This file
+
+## Repository structure
+
+```text
+.
+├── index.html                 # standalone dashboard entry
+├── website/
+│   ├── index.html             # polished presentation dashboard
+│   ├── styles.css
+│   ├── app.js
+│   ├── favicon.svg
+│   ├── robots.txt
+│   └── netlify.toml
 ├── src/
-│   ├── nexus-radar.js           ← Phase 4: Pulse engine + collector client
-│   └── health-monitor.js       ← Phase 5: Gap detection + self-heal suggester
-└── phase2_create.json           ← Phase 2 create output (collector ID proof)
-└── phase3_heal.json             ← Phase 3 heal preview envelope (5-field proof)
+│   ├── nexus-radar.js         # collector client + Pulse Engine
+│   └── health-monitor.js      # extraction drift detector
+├── phase2_create.json         # collector creation evidence
+├── phase3_heal.json           # heal preview evidence
+└── .gitignore
 ```
 
----
+## Hackathon differentiation
 
-## Key Artifacts
+**The product is not just a scraper.** The scraper is the data acquisition layer. The differentiator is the reliability loop that treats extraction quality as an observable system property and produces a repair instruction when that property degrades.
 
-| Artifact | Value |
-|----------|-------|
-| **Collector ID** | `c_msyndhlihcuensmoe` |
-| **Target URL** | `https://www.ycombinator.com/jobs` |
-| **Scraper Name** | `ai-nexus-radar-minimal` |
-| **CLI Version** | `0.3.5` |
-| **API Key** | `de2aa9a8-...` (env: `BRIGHTDATA_API_KEY`) — *keep this secret* |
+### Demo story
 
----
+1. Show a healthy five-field extraction.
+2. Introduce a broken/missing field in a test payload.
+3. Show the Health Monitor detect the drift.
+4. Show the generated Bright Data heal prompt.
+5. Run/approve the repair in Scraper Studio.
+6. Re-run extraction and show the field recovered.
+7. Feed the recovered data into the Pulse Engine and dashboard.
 
-## Team Notes
+That sequence demonstrates the actual value of self-healing instead of merely describing it.
 
-- **Self-healing is the differentiator.** The `bdata scraper heal` command rewrites the scraper logic in-place using plain-language prompts. If Y Combinator changes their CSS classes, we don't touch code — we just re-run the heal with the same prompt.
-- **The Pulse Score is the hook.** For the "Suit-Up" track demo, the Pulse Score gives judges a single number that captures whether the AI hiring wave is surging or calm.
-- **Health Monitor closes the loop.** It's the "always-on" reliability layer — a cron job could run it every hour and auto-trigger a heal if gaps are detected.
+## Security
+
+**Never commit `BRIGHTDATA_API_KEY` or any other credential.** Configure secrets through the environment or deployment platform. Historical credential-looking values should not be treated as valid secrets; if a real credential was ever exposed, rotate it immediately.
+
+## License
+
+Built as a hackathon project for the *Into the Scrape-Verse* challenge.
