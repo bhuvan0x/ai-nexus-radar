@@ -1,247 +1,193 @@
 /**
  * AI-Nexus Radar — Collector Client
- * ===================================
- * Consumes the Bright Data collector `c_msyndhlihcuensmoe` to scrape
- * Y Combinator's job board and transform raw results into a
- * "Sentiment Pulse" score for the hackathon dashboard.
- *
- * "A stranger could pick it up on Monday." — Spider-Sense Clean Code track
- *
- * Setup:
- *   npm init -y
- *   npm install node-fetch  (or use native fetch on Node 18+)
- *
- * Usage:
- *   node src/nexus-radar.js
+ * =================================
+ * Bright Data collector -> normalization -> health-aware pulse scoring.
  *
  * Environment:
- *   BRIGHTDATA_API_KEY  — your Bright Data API key
- *   COLLECTOR_ID        — defaults to c_msyndhlihcuensmoe
- *   TARGET_URL          — defaults to https://www.ycombinator.com/jobs
+ *   BRIGHTDATA_API_KEY  required
+ *   COLLECTOR_ID        defaults to c_msyndhlihcuensmoe
+ *   TARGET_URL          defaults to https://www.ycombinator.com/jobs
+ *   MAX_RETRIES         defaults to 4
  */
 
 const COLLECTOR_ID = process.env.COLLECTOR_ID || "c_msyndhlihcuensmoe";
-const TARGET_URL   = process.env.TARGET_URL   || "https://www.ycombinator.com/jobs";
-const API_KEY      = process.env.BRIGHTDATA_API_KEY;
+const TARGET_URL = process.env.TARGET_URL || "https://www.ycombinator.com/jobs";
+const API_KEY = process.env.BRIGHTDATA_API_KEY;
+const MAX_RETRIES = Number(process.env.MAX_RETRIES || 4);
+const BRIGHT_BASE = "https://api.brightdata.com/api/v1";
 
 if (!API_KEY) {
-  console.error("❌  Set BRIGHTDATA_API_KEY in your environment.");
+  console.error("Set BRIGHTDATA_API_KEY in your environment.");
   process.exit(1);
 }
 
-const BRIGHT_BASE = "https://api.brightdata.com/api/v1";
+const AI_KEYWORDS = [
+  "ai", "machine learning", "ml", "llm", "langchain", "pytorch",
+  "tensorflow", "openai", "anthropic", "gpt", "chatgpt", "claude",
+  "copilot", "nlp", "computer vision", "generative ai", "rag",
+  "agents", "autogen", "llamaindex", "transformers", "hugging face"
+];
 
-// ---------------------------------------------------------------------------
-// 1. RAW FETCH — calls the Bright Data Scraper API
-// ---------------------------------------------------------------------------
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
-async function fetchScrape(collectorId, url, maxRetries = 4) {
+function unwrapRows(raw) {
+  if (Array.isArray(raw)) return raw;
+  return raw?.data || raw?.results || raw?.items || [];
+}
+
+async function fetchScrape(collectorId, url, maxRetries = MAX_RETRIES) {
   let lastError;
+
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       const res = await fetch(`${BRIGHT_BASE}/scraper`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${API_KEY}`,
+          Authorization: `Bearer ${API_KEY}`
         },
-        body: JSON.stringify({ collector_id: collectorId, url }),
+        body: JSON.stringify({ collector_id: collectorId, url })
       });
 
-      if (res.status === 429) {
-        lastError = new Error(`Rate limited (429) — retry ${attempt + 1}/${maxRetries}`);
-        if (attempt < maxRetries) {
-          const jitter = Math.random() * 500;
-          const wait = Math.min(2 ** attempt * 1000 + jitter, 30000);
-          console.warn(`⚠️  Rate limited, waiting ${Math.round(wait / 1000)}s before retry ${attempt + 1}/${maxRetries}`);
-          await new Promise((r) => setTimeout(r, wait));
-          continue;
-        }
-      }
+      if (res.ok) return res.json();
 
-      if (!res.ok) {
-        const body = await res.text().catch(() => "");
-        throw new Error(`Bright Data scrape failed (${res.status}): ${body}`);
-      }
+      const body = await res.text().catch(() => "");
+      const retryable = [408, 425, 429, 500, 502, 503, 504].includes(res.status);
+      lastError = new Error(`Bright Data scrape failed (${res.status}): ${body}`);
 
-      return res.json();
-    } catch (err) {
-      if (err.message.includes("429") && attempt < maxRetries) {
-        lastError = err;
-        continue;
-      }
-      throw err;
+      if (!retryable || attempt === maxRetries) throw lastError;
+
+      const backoff = Math.min(1000 * 2 ** attempt, 30000);
+      const jitter = Math.floor(Math.random() * 500);
+      console.warn(`Retryable scrape error ${res.status}; retrying in ${backoff + jitter}ms (${attempt + 1}/${maxRetries})`);
+      await sleep(backoff + jitter);
+    } catch (error) {
+      lastError = error;
+      if (attempt === maxRetries) throw error;
+      if (!/fetch|network|timed out|failed/i.test(error.message)) throw error;
+      const backoff = Math.min(1000 * 2 ** attempt, 30000) + Math.floor(Math.random() * 500);
+      await sleep(backoff);
     }
   }
-  throw lastError || new Error("Unknown fetch error");
+
+  throw lastError || new Error("Unknown scrape error");
 }
 
-// ---------------------------------------------------------------------------
-// 2. PULSE ENGINE — transforms raw JSON → Sentiment Score
-// ---------------------------------------------------------------------------
-
-/**
- * Compute a "Pulse" sentiment score from the scraped job data.
- *
- * Logic:
- *   - AI Density: fraction of job postings whose tech_stack_tags include
- *     any AI-related keyword (ai, ml, llm, langchain, pytorch, tensorflow,
- *     openai, anthropic, gpt, etc.).
- *   - Salary Signal: fraction of postings that expose a salary_range.
- *   - Freshness: fraction posted within the last 30 days.
- *
- * The three sub-scores (0–1 each) are combined into a single 0–100 Pulse.
- * Thresholds:
- *   Pulse ≥ 70 → "HIGH"   (AI wave is surging)
- *   Pulse ≥ 40 → "MEDIUM" (steady activity)
- *   Pulse < 40 → "LOW"    (calm / stale)
- */
-const AI_KEYWORDS = [
-  "ai", "machine learning", "ml", "llm", "langchain", "pytorch",
-  "tensorflow", "openai", "anthropic", "gpt", "chatgpt", "claude",
-  "copilot", "summarization", "nlp", "computer vision", "image gen",
-  "generative ai", "rag", "agents", "autogen", "llamaindex",
-];
-
-const ONE_MONTH_AGO = new Date();
-ONE_MONTH_AGO.setDate(ONE_MONTH_AGO.getDate() - 30);
-
 function isAITagged(tags) {
-  if (!Array.isArray(tags) || tags.length === 0) return false;
-  return tags.some((t) =>
-    AI_KEYWORDS.some((kw) => t.toLowerCase().includes(kw))
-  );
+  if (!Array.isArray(tags)) return false;
+  return tags.some(tag => AI_KEYWORDS.some(keyword => String(tag).toLowerCase().includes(keyword)));
 }
 
 function parsePostedDate(raw) {
-  // Bright Data often returns human-readable like "2 months", "3 days ago"
   if (!raw) return null;
-  const lower = raw.toLowerCase();
+  const value = String(raw).trim().toLowerCase();
+  const now = Date.now();
 
-  // "X days ago" → absolute timestamp
-  const dayMatch = lower.match(/(\d+)\s*day/i);
-  if (dayMatch) {
-    const daysAgo = Number(dayMatch[1]);
-    return Date.now() - daysAgo * 86400000;
+  const relative = value.match(/(\d+)\s*(minute|hour|day|week|month)s?/i);
+  if (relative) {
+    const amount = Number(relative[1]);
+    const unit = relative[2];
+    const days = unit === "minute" ? amount / 1440 : unit === "hour" ? amount / 24 : unit === "week" ? amount * 7 : unit === "month" ? amount * 30 : amount;
+    return now - days * 86400000;
   }
 
-  // "X months ago" → approximate absolute timestamp
-  const monthMatch = lower.match(/(\d+)\s*month/i);
-  if (monthMatch) {
-    const monthsAgo = Number(monthMatch[1]);
-    return Date.now() - monthsAgo * 30 * 86400000;
-  }
-
-  // "X hours ago" → approximate
-  const hourMatch = lower.match(/(\d+)\s*hour/i);
-  if (hourMatch) {
-    const hoursAgo = Number(hourMatch[1]);
-    return Date.now() - hoursAgo * 3600000;
-  }
-
-  // try ISO date / parseable date string
-  const iso = new Date(raw);
-  if (!isNaN(iso.getTime())) return iso.getTime();
-
-  return null;
+  const parsed = Date.parse(raw);
+  return Number.isNaN(parsed) ? null : parsed;
 }
 
-/**
- * @param {Array<object>} rawJobs  — raw Bright Data scrape rows
- * @returns {{ pulse: number, level: string, breakdown: object, enriched: array }}
- */
+function hasValue(value) {
+  if (value === null || value === undefined) return false;
+  if (Array.isArray(value)) return value.length > 0;
+  return String(value).trim() !== "" && String(value).trim().toLowerCase() !== "n/a";
+}
+
 function computePulse(rawJobs) {
-  const total = rawJobs.length;
-  if (total === 0) {
-    return { pulse: 0, level: "LOW", breakdown: { aiDensity: 0, salarySignal: 0, freshness: 0 }, enriched: [] };
+  const jobs = Array.isArray(rawJobs) ? rawJobs : [];
+  const total = jobs.length;
+
+  if (!total) {
+    return {
+      pulse: 0,
+      level: "LOW",
+      breakdown: { aiDensity: 0, marketTransparency: 0, freshness: 0 },
+      enriched: [],
+      totals: { jobs: 0, aiJobs: 0, salaryJobs: 0, freshJobs: 0 }
+    };
   }
 
   let aiCount = 0;
-  let salaryCount = 0;
+  let transparencyCount = 0;
   let freshCount = 0;
-  const enriched = rawJobs.map((job) => {
-    const tags = job.tech_stack_tags || [];
-    const hasAI = isAITagged(tags);
-    if (hasAI) aiCount++;
+  const cutoff = Date.now() - 30 * 86400000;
 
-    const hasSalary = Boolean(job.salary_range && job.salary_range.trim());
-    if (hasSalary) salaryCount++;
-
+  const enriched = jobs.map(job => {
+    const tags = Array.isArray(job.tech_stack_tags) ? job.tech_stack_tags : [];
+    const aiRelated = isAITagged(tags);
+    const hasSalary = hasValue(job.salary_range);
     const postedTs = parsePostedDate(job.posted_date);
-    if (postedTs && postedTs >= ONE_MONTH_AGO.getTime()) freshCount++;
+    const isRecent = Boolean(postedTs && postedTs >= cutoff);
+
+    if (aiRelated) aiCount++;
+    if (hasSalary) transparencyCount++;
+    if (isRecent) freshCount++;
 
     return {
       ...job,
-      ai_related: hasAI,
+      tech_stack_tags: tags,
+      ai_related: aiRelated,
       has_salary: hasSalary,
-      is_recent: Boolean(postedTs && postedTs >= ONE_MONTH_AGO.getTime()),
-      pulse_tags: tags.filter((t) => AI_KEYWORDS.some((kw) => t.toLowerCase().includes(kw))),
+      is_recent: isRecent,
+      pulse_tags: tags.filter(tag => AI_KEYWORDS.some(keyword => String(tag).toLowerCase().includes(keyword)))
     };
   });
 
-  const aiDensity  = aiCount / total;
-  const salarySig  = salaryCount / total;
-  const freshness  = freshCount / total;
-
-  // Weighted composite — AI density is the primary signal for the Radar
-  const pulse = Math.round(
-    (aiDensity * 0.60 + salarySig * 0.20 + freshness * 0.20) * 100
-  );
-
+  const aiDensity = aiCount / total;
+  const marketTransparency = transparencyCount / total;
+  const freshness = freshCount / total;
+  const pulse = Math.round((aiDensity * 0.6 + marketTransparency * 0.2 + freshness * 0.2) * 100);
   const level = pulse >= 70 ? "HIGH" : pulse >= 40 ? "MEDIUM" : "LOW";
 
-  return { pulse, level, breakdown: { aiDensity, salarySignal: salarySig, freshness }, enriched };
+  return {
+    pulse,
+    level,
+    breakdown: { aiDensity, marketTransparency, freshness },
+    enriched,
+    totals: { jobs: total, aiJobs: aiCount, salaryJobs: transparencyCount, freshJobs: freshCount }
+  };
 }
-
-// ---------------------------------------------------------------------------
-// 3. MAIN — orchestrate fetch → transform → report
-// ---------------------------------------------------------------------------
 
 async function main() {
-  console.log(`🎯  Target:    ${TARGET_URL}`);
-  console.log(`📡  Collector: ${COLLECTOR_ID}`);
-  console.log("─".repeat(56));
+  console.log(`Target: ${TARGET_URL}`);
+  console.log(`Collector: ${COLLECTOR_ID}`);
 
-  let raw;
-  try {
-    raw = await fetchScrape(COLLECTOR_ID, TARGET_URL);
-  } catch (err) {
-    console.error("Scrape request failed:", err.message);
-    process.exit(1);
-  }
+  const raw = await fetchScrape(COLLECTOR_ID, TARGET_URL);
+  const jobs = unwrapRows(raw);
+  const result = computePulse(jobs);
 
-  // Bright Data may wrap the array inside a property; unwrap gracefully.
-  const jobs = Array.isArray(raw) ? raw : (raw.data || raw.results || raw.items || []);
-  console.log(`📦  Raw jobs returned: ${jobs.length}`);
+  console.log(`Jobs: ${result.totals.jobs}`);
+  console.log(`Pulse: ${result.pulse}/100 -> ${result.level}`);
+  console.log(`AI density: ${(result.breakdown.aiDensity * 100).toFixed(1)}%`);
+  console.log(`Market transparency: ${(result.breakdown.marketTransparency * 100).toFixed(1)}%`);
+  console.log(`Freshness: ${(result.breakdown.freshness * 100).toFixed(1)}%`);
+  console.log(JSON.stringify(result, null, 2));
 
-  const { pulse, level, breakdown, enriched } = computePulse(jobs);
-
-  console.log("─".repeat(56));
-  console.log(`📊  PULSE SCORE: ${pulse}/100  →  ${level}`);
-  console.log("   Breakdown:");
-  console.log(`   • AI Density : ${(breakdown.aiDensity * 100).toFixed(1)}%  (${Math.round(breakdown.aiDensity * jobs.length)} of ${jobs.length} postings)`);
-  console.log(`   • Salary Sig : ${(breakdown.salarySignal * 100).toFixed(1)}%`);
-  console.log(`   • Freshness  : ${(breakdown.freshness * 100).toFixed(1)}%`);
-  console.log("─".repeat(56));
-
-  // Spotlight: AI-tagged postings
-  const aiJobs = enriched.filter((j) => j.ai_related);
-  if (aiJobs.length) {
-    console.log(`✨  AI-tagged postings (${aiJobs.length}):`);
-    aiJobs.slice(0, 5).forEach((j) => {
-      console.log(`   → ${j.job_title}  @  ${j.company_name || "unknown"}`);
-      if (j.pulse_tags.length) console.log(`     tags: ${j.pulse_tags.join(", ")}`);
-    });
-  }
-
-  // Full enriched payload as JSON (pipe to a file for the dashboard)
-  console.log("\n📄  Full enriched JSON (stdout):");
-  console.log(JSON.stringify(enriched, null, 2));
-
-  return { pulse, level, breakdown, enriched };
+  return result;
 }
 
-main().catch((err) => {
-  console.error("Fatal:", err);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch(error => {
+    console.error("Fatal:", error.message);
+    process.exit(1);
+  });
+}
+
+module.exports = {
+  AI_KEYWORDS,
+  computePulse,
+  fetchScrape,
+  isAITagged,
+  parsePostedDate,
+  unwrapRows
+};
