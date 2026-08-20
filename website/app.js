@@ -1,132 +1,24 @@
 /* AI-Nexus Radar — Flexible Scraper Studio */
 (() => {
-  const $ = (id) => document.getElementById(id);
-  const state = { fields: [
-    ['title','The primary title or name for each item'],
-    ['url','The canonical URL for each item'],
-    ['description','The main description or summary'],
-    ['price','Price or compensation when present']
-  ], mode: 'run', rows: [], columns: [], collectorId: '', lastRun: null };
-
-  const escapeHtml = (v) => String(v ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
-  const log = (message, replace = false) => {
-    const el = $('log');
-    const stamp = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
-    el.textContent = replace ? `[${stamp}] ${message}` : `${el.textContent}\n[${stamp}] ${message}`;
-    el.scrollTop = el.scrollHeight;
-  };
-  const toast = (message) => { const t=$('toast'); t.textContent=message; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); };
-  const setStatus = (text, live=false) => { $('statusText').textContent=text; $('statusDot').className=live?'live':''; };
-
-  function renderFields() {
-    $('fields').innerHTML = state.fields.map(([key, desc], i) => `<div class="fieldChip"><span class="drag">⋮⋮</span><input data-i="${i}" class="fieldKey" value="${escapeHtml(key)}"><input data-i="${i}" class="fieldDesc" value="${escapeHtml(desc)}"><button class="removeField" data-i="${i}" aria-label="Remove field">×</button></div>`).join('');
-    document.querySelectorAll('.fieldKey,.fieldDesc').forEach(el => el.addEventListener('input', e => {
-      const i=Number(e.target.dataset.i); state.fields[i][e.target.classList.contains('fieldKey')?0:1]=e.target.value;
-    }));
-    document.querySelectorAll('.removeField').forEach(b=>b.addEventListener('click',()=>{state.fields.splice(Number(b.dataset.i),1);renderFields();}));
-  }
-
-  function urls() { return $('urls').value.split(/\r?\n|,/).map(s=>s.trim()).filter(Boolean); }
-  function schemaDescription() { return state.fields.filter(([k])=>k.trim()).map(([k,d])=>`${k.trim()} — ${d.trim()}`).join('; '); }
-
-  function renderRows(rows) {
-    state.rows = Array.isArray(rows) ? rows : [];
-    const columns = [...new Set(state.rows.flatMap(r => Object.keys(r || {})))];
-    state.columns = columns.length ? columns : state.fields.map(([k])=>k);
-    $('resultTable').querySelector('thead').innerHTML = `<tr>${state.columns.map(c=>`<th>${escapeHtml(c)}</th>`).join('')}</tr>`;
-    $('resultTable').querySelector('tbody').innerHTML = state.rows.length ? state.rows.map(row=>`<tr>${state.columns.map(c=>`<td>${escapeHtml(Array.isArray(row?.[c]) ? row[c].join(', ') : row?.[c] ?? '')}</td>`).join('')}</tr>`).join('') : '<tr><td class="empty">No rows returned.</td></tr>';
-    $('jsonView').textContent = JSON.stringify(state.rows,null,2);
-    $('resultMeta').textContent = `${state.rows.length} rows · ${state.columns.length} fields · ${state.lastRun?.cached ? 'cached' : 'live'} · ${state.lastRun?.collectedAt ? new Date(state.lastRun.collectedAt).toLocaleString() : 'not run'}`;
-  }
-
-  function health(rows, columns) {
-    const required = state.fields.map(([k])=>k.trim()).filter(Boolean);
-    const data = rows || [];
-    const checks = required.map(key => {
-      const empty = data.filter(r => { const v=r?.[key]; return v==null || (typeof v==='string'&&!v.trim()) || (Array.isArray(v)&&!v.length); }).length;
-      const ratio = data.length ? empty/data.length : 1;
-      return {key, empty, ratio, ok: ratio < .3 && columns.includes(key)};
-    });
-    const schemaCoverage = required.length ? checks.filter(c=>c.ok).length/required.length : 0;
-    const completeness = data.length ? checks.reduce((a,c)=>a+(1-c.ratio),0)/(checks.length||1) : 0;
-    const score = Math.round(Math.max(0,Math.min(100,(schemaCoverage*.5+completeness*.5)*100)));
-    $('healthScore').textContent=score; $('healthBig').textContent=score; $('rowMetric').textContent=data.length; $('fieldMetric').textContent=columns.length;
-    $('healthSummary').textContent = score >= 85 ? 'Healthy extraction. Schema and completeness look stable.' : score >= 60 ? 'Extraction needs attention. Review the flagged fields before trusting downstream data.' : 'Extraction is unhealthy. Use the self-heal panel to repair the collector.';
-    $('fieldHealth').innerHTML = checks.length ? checks.map(c=>`<div class="fieldHealthRow"><span><b>${escapeHtml(c.key)}</b><small>${c.empty}/${data.length||0} empty</small></span><strong class="${c.ok?'ok':'bad'}">${c.ok?'HEALTHY':'DRIFT'}</strong></div>`).join('') : '<div class="empty">No requested fields.</div>';
-    return {score,checks};
-  }
-
-  async function api(path, options={}) {
-    const res = await fetch(path, {headers:{'Content-Type':'application/json'}, ...options});
-    let body={}; try { body=await res.json(); } catch { body={}; }
-    if (!res.ok) throw new Error(body.error || `Request failed (${res.status})`);
-    return body;
-  }
-
-  async function runExistingCollector(collectorId, targetUrls) {
-    const results=[];
-    for (const url of targetUrls) {
-      log(`Triggering ${url}`);
-      const body=await api('/api/run',{method:'POST',body:JSON.stringify({collectorId,url})});
-      log(`Response ${body.responseId || 'received'} · polling Bright Data...`);
-      const started=Date.now();
-      while(Date.now()-started < 180000) {
-        const p=await api(`/api/run?responseId=${encodeURIComponent(body.responseId)}`);
-        if(p.status==='pending') { log(`Collector still running (${Math.round((Date.now()-started)/1000)}s)`); await new Promise(r=>setTimeout(r,2500)); continue; }
-        if(p.status==='failed') throw new Error(p.error || 'Bright Data collector failed');
-        const rows=Array.isArray(p.data)?p.data:(p.data?.data||p.data?.results||p.data?.items||[]);
-        results.push(...rows); break;
-      }
-    }
-    return results;
-  }
-
-  async function createCollector(url, description) {
-    log('No collector supplied. Starting Bright Data AI collector creation...');
-    const body=await api('/api/collector',{method:'POST',body:JSON.stringify({url,description,name:`nexus-${Date.now()}`})});
-    const collectorId=body.collectorId;
-    if(!collectorId) throw new Error('Collector creation did not return a collector ID.');
-    state.collectorId=collectorId; $('collectorId').value=collectorId; log(`Collector created: ${collectorId}`);
-    return collectorId;
-  }
-
-  async function run() {
-    const targetUrls=urls(); if(!targetUrls.length) return toast('Add at least one public URL.');
-    const desc=$('description').value.trim() || schemaDescription();
-    if(!desc) return toast('Describe the fields you want to extract.');
-    $('runBtn').disabled=true; setStatus('RUNNING',true); log('Starting flexible extraction...',true);
-    try {
-      let id=$('collectorId').value.trim();
-      if(!id && $('autoCreate').checked) id=await createCollector(targetUrls[0],desc);
-      if(!id) throw new Error('Enter a collector ID or enable automatic collector creation.');
-      state.collectorId=id;
-      const rows=await runExistingCollector(id,targetUrls);
-      const normalized=rows.map(r=>{ const o={}; state.fields.forEach(([k])=>o[k]=r?.[k] ?? r?.[k.replace(/_([a-z])/g,(_,c)=>c.toUpperCase())] ?? null); return Object.keys(o).length?o:r; });
-      const columns=[...new Set(normalized.flatMap(r=>Object.keys(r||{})))];
-      const h=health(normalized,columns); renderRows(normalized); state.lastRun={collectedAt:new Date().toISOString(),cached:false}; renderRows(normalized); log(`Completed: ${normalized.length} rows · health ${h.score}/100`); setStatus(h.score>=60?'HEALTHY':'DRIFT',h.score>=60);
-      if(h.score<60) { $('healState').textContent='DRIFT DETECTED'; $('healPrompt').value=`Extraction drift detected in: ${h.checks.filter(c=>!c.ok).map(c=>c.key).join(', ')}. Repair the existing collector for this schema: ${schemaDescription()}.`; }
-    } catch(e) { log(`ERROR: ${e.message}`); setStatus('ERROR'); toast(e.message); } finally { $('runBtn').disabled=false; }
-  }
-
-  async function triggerHeal() {
-    const id=$('collectorId').value.trim() || state.collectorId; if(!id) return toast('Run or create a collector first.');
-    const prompt=$('healPrompt').value.trim(); if(!prompt) return toast('Describe the extraction failure first.');
-    $('healBtn').disabled=true; setStatus('HEALING',true); $('healState').textContent='HEALING'; log(`Triggering Bright Data self-heal for ${id}...`);
-    try { const r=await api('/api/heal',{method:'POST',body:JSON.stringify({collectorId:id,prompt})}); $('healPreview').textContent=JSON.stringify(r,null,2); $('healState').textContent=r.status||'AWAITING APPROVAL'; log(`Heal status: ${r.status||'awaiting approval'}`); }
-    catch(e){log(`HEAL ERROR: ${e.message}`);toast(e.message);$('healState').textContent='ERROR';} finally {$('healBtn').disabled=false;}
-  }
-  async function approveHeal() { const id=$('collectorId').value.trim()||state.collectorId; if(!id)return toast('No collector selected.'); try { const r=await api('/api/heal',{method:'PUT',body:JSON.stringify({collectorId:id})}); $('healPreview').textContent=JSON.stringify(r,null,2); $('healState').textContent=r.status||'APPROVED'; log(`Repair approval: ${r.status||'complete'}`); } catch(e){toast(e.message);log(`APPROVE ERROR: ${e.message}`);} }
-
-  function csvDownload() { if(!state.rows.length)return toast('No data to export.'); const cols=state.columns; const lines=[cols.map(c=>`"${String(c).replaceAll('"','""')}"`).join(','),...state.rows.map(r=>cols.map(c=>`"${String(Array.isArray(r?.[c])?r[c].join('; '):r?.[c]??'').replaceAll('"','""')}"`).join(','))]; download('nexus-radar.csv',lines.join('\n'),'text/csv'); }
-  function download(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();URL.revokeObjectURL(a.href);}
-
-  $('runBtn').addEventListener('click',run); $('healBtn').addEventListener('click',triggerHeal); $('approveBtn').addEventListener('click',approveHeal);
-  $('addField').addEventListener('click',()=>{const raw=$('newField').value.trim(); if(!raw)return; const [k,...rest]=raw.split('|').map(s=>s.trim()); state.fields.push([k,rest.join(' | ')||'Requested extraction field']); $('newField').value='';renderFields();});
-  $('exampleAmazon').addEventListener('click',()=>{$('urls').value='https://example.com/products';$('description').value='Extract one row per product with product name, price, availability, rating and product URL.';});
-  $('exampleDocs').addEventListener('click',()=>{$('urls').value='https://example.com/docs';$('description').value='Extract document title, section heading, summary, author and canonical URL for each document.';});
-  $('clearUrls').addEventListener('click',()=>{$('urls').value='';});
-  document.querySelectorAll('.mode').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.mode').forEach(x=>x.classList.remove('active'));b.classList.add('active');state.mode=b.dataset.mode;}));
-  $('viewTable').addEventListener('click',()=>{$('tableWrap').classList.remove('hidden');$('jsonView').classList.add('hidden');}); $('viewJson').addEventListener('click',()=>{$('tableWrap').classList.add('hidden');$('jsonView').classList.remove('hidden');});
-  $('downloadCsv').addEventListener('click',csvDownload); $('downloadJson').addEventListener('click',()=>download('nexus-radar.json',JSON.stringify(state.rows,null,2),'application/json')); $('copyLog').addEventListener('click',()=>navigator.clipboard?.writeText($('log').textContent).then(()=>toast('Activity copied.')));
-  renderFields(); renderRows([]); health([],[]);
+  const $=id=>document.getElementById(id);
+  const state={fields:[['title','The primary title or name for each item'],['url','The canonical URL for each item'],['description','The main description or summary'],['price','Price or compensation when present']],rows:[],columns:[],collectorId:'',lastRun:null};
+  const esc=v=>String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+  const log=(m,replace=false)=>{const e=$('log'),t=new Date().toLocaleTimeString([], {hour12:false});e.textContent=replace?`[${t}] ${m}`:`${e.textContent}\n[${t}] ${m}`;e.scrollTop=e.scrollHeight;};
+  const toast=m=>{const t=$('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200)};
+  const status=(s,live=false)=>{$('statusText').textContent=s;$('statusDot').className=live?'live':''};
+  const urls=()=>$('urls').value.split(/\r?\n|,/).map(x=>x.trim()).filter(Boolean);
+  const schema=()=>state.fields.filter(x=>x[0].trim()).map(([k,d])=>`${k.trim()} — ${d.trim()}`).join('; ');
+  function renderFields(){ $('fields').innerHTML=state.fields.map(([k,d],i)=>`<div class="fieldChip"><span class="drag">⋮⋮</span><input data-i="${i}" class="fieldKey" value="${esc(k)}"><input data-i="${i}" class="fieldDesc" value="${esc(d)}"><button class="removeField" data-i="${i}">×</button></div>`).join('');document.querySelectorAll('.fieldKey,.fieldDesc').forEach(e=>e.oninput=()=>{const i=+e.dataset.i;state.fields[i][e.classList.contains('fieldKey')?0:1]=e.value});document.querySelectorAll('.removeField').forEach(e=>e.onclick=()=>{state.fields.splice(+e.dataset.i,1);renderFields()})}
+  function renderRows(rows){state.rows=Array.isArray(rows)?rows:[];state.columns=[...new Set(state.rows.flatMap(r=>Object.keys(r||{})))];if(!state.columns.length)state.columns=state.fields.map(x=>x[0]);$('resultTable').querySelector('thead').innerHTML=`<tr>${state.columns.map(c=>`<th>${esc(c)}</th>`).join('')}</tr>`;$('resultTable').querySelector('tbody').innerHTML=state.rows.length?state.rows.map(r=>`<tr>${state.columns.map(c=>`<td>${esc(Array.isArray(r?.[c])?r[c].join(', '):r?.[c]??'')}</td>`).join('')}</tr>`).join(''):'<tr><td class="empty">No rows returned.</td></tr>';$('jsonView').textContent=JSON.stringify(state.rows,null,2);$('resultMeta').textContent=`${state.rows.length} rows · ${state.columns.length} fields · ${state.lastRun?.collectedAt?new Date(state.lastRun.collectedAt).toLocaleString():'not run'}`}
+  function health(rows,cols){const req=state.fields.map(x=>x[0].trim()).filter(Boolean),data=rows||[];const checks=req.map(k=>{const empty=data.filter(r=>r?.[k]==null||(typeof r?.[k]==='string'&&!r[k].trim())||(Array.isArray(r?.[k])&&!r[k].length)).length;return{key:k,empty,ratio:data.length?empty/data.length:1,ok:cols.includes(k)&&(!data.length||empty/data.length<.3)}});const coverage=req.length?checks.filter(x=>x.ok).length/req.length:0,complete=checks.length?checks.reduce((a,c)=>a+1-c.ratio,0)/checks.length:0,score=Math.round((coverage*.5+complete*.5)*100);$('healthScore').textContent=score;$('healthBig').textContent=score;$('rowMetric').textContent=data.length;$('fieldMetric').textContent=cols.length;$('healthSummary').textContent=score>=85?'Healthy extraction. Schema and completeness look stable.':score>=60?'Extraction needs attention. Review flagged fields.':'Extraction is unhealthy. Trigger self-heal before trusting downstream data.';$('fieldHealth').innerHTML=checks.length?checks.map(c=>`<div class="fieldHealthRow"><span><b>${esc(c.key)}</b><small>${c.empty}/${data.length} empty</small></span><strong class="${c.ok?'ok':'bad'}">${c.ok?'HEALTHY':'DRIFT'}</strong></div>`).join(''):'<div class="empty">No requested fields.</div>';return{score,checks}}
+  async function api(path,opt={}){const r=await fetch(path,{headers:{'Content-Type':'application/json'},...opt});let b={};try{b=await r.json()}catch{}if(!r.ok)throw Error(b.error||`Request failed (${r.status})`);return b}
+  async function waitCollector(id){for(let i=0;i<120;i++){const p=await api(`/api/collector?collectorId=${encodeURIComponent(id)}`);if(p.status==='done')return p;if(['failed','error','cancelled'].includes(p.status))throw Error(`Collector creation ${p.status}.`);log(`AI collector generation: ${p.status||'running'} (${i+1}/120)`);await new Promise(r=>setTimeout(r,2500))}throw Error('Collector creation timed out. Open Bright Data Scraper Studio to inspect it.')}
+  async function createCollector(url,desc){log('Creating Bright Data collector template...');const r=await api('/api/collector',{method:'POST',body:JSON.stringify({url,description:desc,name:`nexus-${Date.now()}`})});state.collectorId=r.collectorId;$('collectorId').value=r.collectorId;log(`Collector created: ${r.collectorId}`);await waitCollector(r.collectorId);log('Collector AI generation finished.');return r.collectorId}
+  async function runCollector(id,url){const start=await api('/api/run',{method:'POST',body:JSON.stringify({collectorId:id,url})});log(`Triggered ${url} · ${start.responseId}`);for(let i=0;i<90;i++){const p=await api(`/api/run?responseId=${encodeURIComponent(start.responseId)}`);if(p.status==='done')return Array.isArray(p.data)?p.data:(p.data?.data||p.data?.results||p.data?.items||p.data?.rows||[]);log(`Waiting for scrape result (${i+1}/90)...`);await new Promise(r=>setTimeout(r,2500))}throw Error('Scrape timed out. The Bright Data job may still be running; retry rather than creating another collector.')}
+  async function run(){const us=urls(),desc=$('description').value.trim()||schema();if(!us.length)return toast('Add at least one public URL.');if(!desc)return toast('Describe the extraction schema.');$('runBtn').disabled=true;status('RUNNING',true);log('Starting flexible extraction...',true);try{let id=$('collectorId').value.trim();if(!id&&$('autoCreate').checked)id=await createCollector(us[0],desc);if(!id)throw Error('Enter a collector ID or enable automatic collector creation.');state.collectorId=id;let rows=[];for(const u of us)rows.push(...await runCollector(id,u));renderRows(rows);state.lastRun={collectedAt:new Date().toISOString()};const h=health(rows,state.columns);log(`Complete · ${rows.length} rows · health ${h.score}/100`);status(h.score>=60?'HEALTHY':'DRIFT',h.score>=60);if(h.score<60){$('healState').textContent='DRIFT DETECTED';$('healPrompt').value=`Repair collector ${id}. These fields are missing or incomplete: ${h.checks.filter(c=>!c.ok).map(c=>c.key).join(', ')}. Preserve the requested schema: ${schema()}.`}}catch(e){log(`ERROR: ${e.message}`);status('ERROR');toast(e.message)}finally{$('runBtn').disabled=false}}
+  async function heal(){const id=$('collectorId').value.trim()||state.collectorId,p=$('healPrompt').value.trim();if(!id)return toast('Run a collector first.');if(!p)return toast('Describe what broke.');$('healBtn').disabled=true;status('HEALING',true);$('healState').textContent='HEALING';log(`Triggering Bright Data self-heal for ${id}...`);try{const r=await api('/api/heal',{method:'POST',body:JSON.stringify({collectorId:id,prompt:p})});$('healPreview').textContent=JSON.stringify(r,null,2);$('healState').textContent=r.status||'RUNNING';log(`Heal: ${r.status||'running'}`)}catch(e){log(`HEAL ERROR: ${e.message}`);toast(e.message);$('healState').textContent='ERROR'}finally{$('healBtn').disabled=false}}
+  async function approve(){const id=$('collectorId').value.trim()||state.collectorId;if(!id)return toast('No collector selected.');try{const r=await api('/api/heal',{method:'PUT',body:JSON.stringify({collectorId:id})});$('healPreview').textContent=JSON.stringify(r,null,2);$('healState').textContent=r.status||'APPROVED';log(`Repair: ${r.status||'approved'}`)}catch(e){toast(e.message);log(`APPROVE ERROR: ${e.message}`)}}
+  function download(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500)}
+  function csv(){if(!state.rows.length)return toast('No data to export.');const lines=[state.columns.map(c=>`"${String(c).replaceAll('"','""')}"`).join(','),...state.rows.map(r=>state.columns.map(c=>`"${String(Array.isArray(r?.[c])?r[c].join('; '):r?.[c]??'').replaceAll('"','""')}"`).join(','))];download('nexus-radar.csv',lines.join('\n'),'text/csv')}
+  $('runBtn').onclick=run;$('healBtn').onclick=heal;$('approveBtn').onclick=approve;$('addField').onclick=()=>{const raw=$('newField').value.trim();if(!raw)return;const [k,...d]=raw.split('|').map(x=>x.trim());state.fields.push([k,d.join(' | ')||'Requested extraction field']);$('newField').value='';renderFields()};$('exampleAmazon').onclick=()=>{$('urls').value='https://example.com/products';$('description').value='Extract product name, price, availability, rating, seller and product URL.'};$('exampleDocs').onclick=()=>{$('urls').value='https://example.com/docs';$('description').value='Extract document title, section heading, summary, author and canonical URL.'};$('clearUrls').onclick=()=>$('urls').value='';document.querySelectorAll('.mode').forEach(b=>b.onclick=()=>{document.querySelectorAll('.mode').forEach(x=>x.classList.remove('active'));b.classList.add('active')});$('viewTable').onclick=()=>{$('tableWrap').classList.remove('hidden');$('jsonView').classList.add('hidden')};$('viewJson').onclick=()=>{$('tableWrap').classList.add('hidden');$('jsonView').classList.remove('hidden')};$('downloadCsv').onclick=csv;$('downloadJson').onclick=()=>download('nexus-radar.json',JSON.stringify(state.rows,null,2),'application/json');$('copyLog').onclick=()=>navigator.clipboard?.writeText($('log').textContent).then(()=>toast('Activity copied.'));renderFields();renderRows([]);health([],[]);
 })();
