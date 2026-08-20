@@ -1,163 +1,141 @@
-# AI-Nexus Radar 🌊
+# AI-Nexus Radar
 
-### Self-Healing Web Intelligence for the *Into the Scrape-Verse* Hackathon
+### Flexible self-healing web intelligence for the Into the Scrape-Verse hackathon
 
-> **Websites change. Scrapers break. AI-Nexus Radar detects extraction drift, generates a targeted natural-language repair, and turns recovered data into hiring intelligence.**
+> **Describe what you want to extract. Run it against one URL or a batch. Validate the dataset. When extraction drifts, repair the same Bright Data collector instead of rebuilding the scraper.**
 
 [Live Demo](https://ai-nexus-radar.vercel.app/) · [GitHub](https://github.com/bhuvan0x/ai-nexus-radar)
 
----
+## What changed
 
-## Why this exists
-
-Traditional scrapers assume that a website's structure stays stable. When selectors or layouts change, extraction silently degrades.
-
-AI-Nexus Radar adds a reliability loop:
+AI-Nexus Radar is no longer a YC-jobs-only dashboard. The website is a general scraper workspace built around Bright Data Scraper Studio:
 
 ```text
-YC Jobs
-   ↓
-Bright Data Scraper Studio
-   ↓
-Structured 5-field dataset
-   ↓
-Health Monitor
-   ↓
-Extraction drift detected?
-   ├── No → Pulse Engine → Dashboard
-   └── Yes → targeted heal prompt → Bright Data AI-Flow
-                         ↓
-                    repaired scraper
-                         ↓
-                    verify + recover
+User describes target + schema
+          ↓
+Create/reuse Bright Data collector
+          ↓
+Run one URL or multiple URLs
+          ↓
+Structured result table + JSON/CSV export
+          ↓
+Health Sentinel
+   ┌──────┴──────┐
+ healthy       drift
+   ↓             ↓
+ product      plain-language
+ output       Bright Data heal
+                 ↓
+             approve repair
+                 ↓
+             re-run + verify
 ```
 
-The project uses Bright Data's collector as the scraping layer and keeps the repair instruction in plain language so it is resilient to implementation-level HTML/CSS changes.
+## Product workflow
 
-## Core schema
+1. **Target** — paste any permitted public HTTP(S) URL or a newline-separated batch.
+2. **Extraction intent** — describe the fields in plain language.
+3. **Schema** — edit field names/descriptions or add new fields.
+4. **Collector** — reuse an existing Bright Data collector or create one through the server-side API.
+5. **Run** — trigger the collector and poll the asynchronous Bright Data result.
+6. **Validate** — calculate field completeness, schema coverage and an extraction health score.
+7. **Export** — inspect table/JSON output and download CSV or JSON.
+8. **Self-heal** — describe the detected failure, trigger Bright Data's refactor flow, review the result, approve, then re-run.
 
-| Field | Purpose |
+## Bright Data integration
+
+The repository follows the same API workflow used by the Bright Data CLI for Scraper Studio:
+
+- collector template: `/dca/collector`
+- AI generation: `/dca/collectors/{collector}/automate_template`
+- generation progress: `/dca/collectors/{collector}/automate_template/progress`
+- single scrape trigger: `/dca/trigger_immediate`
+- single scrape result: `/dca/get_result`
+- batch execution: `/dca/trigger` + `/dca/dataset`
+- self-heal trigger: `/dca/collectors/{collector}/refactor_template`
+- self-heal progress: `/dca/collectors/{collector}/refactor_template/progress`
+- approval: `/dca/collectors/{collector}/resume_automation_job`
+
+The browser never receives `BRIGHTDATA_API_KEY`; Vercel serverless functions keep the credential server-side.
+
+## API surface
+
+| Endpoint | Purpose |
 |---|---|
-| `company_name` | Company posting the role |
-| `job_title` | Job title |
-| `salary_range` | Salary / compensation / equity information |
-| `tech_stack_tags` | Technologies, languages, frameworks and tools |
-| `posted_date` | Posting date / relative age |
+| `POST /api/collector` | Create a Bright Data collector and start AI generation |
+| `GET /api/collector?collectorId=...` | Poll collector-generation progress |
+| `POST /api/run` | Trigger a collector for one URL |
+| `GET /api/run?responseId=...` | Poll scrape results |
+| `POST /api/heal` | Trigger self-healing for a collector |
+| `GET /api/heal?collectorId=...` | Read heal progress |
+| `PUT /api/heal` | Approve and save a repair |
 
-## Self-healing proof
+## Reliability
 
-The collector was first created with a minimal schema and then extended through a Bright Data heal operation. The repository preserves the Phase 2 creation artifact and Phase 3 heal preview as evidence.
+The core reliability loop is deliberately observable rather than simulated:
 
-```bash
-npx -p @brightdata/cli bdata scraper heal c_msyndhlihcuensmoe "Extend the existing scraper to extract company_name, salary_range, tech_stack_tags and posted_date while preserving job_title." --pretty --json --timeout 600
+- retryable Bright Data failures are retried in the collector client;
+- result polling handles asynchronous jobs;
+- field-level empty/null rates are measured after every run;
+- missing schema fields are flagged;
+- a low health score creates a targeted repair prompt;
+- the same collector ID is preserved through repair;
+- the repaired collector can be run again for verification.
 
-npx -p @brightdata/cli bdata scraper approve c_msyndhlihcuensmoe
+## Local / Vercel configuration
 
-npx -p @brightdata/cli bdata scraper run c_msyndhlihcuensmoe "https://www.ycombinator.com/jobs" --pretty --json
-```
-
-### Drift detection
-
-`src/health-monitor.js` checks every required field across every returned row. A field crossing the default 30% missing-data threshold produces:
-
-- a health score
-- severity (`warning` / `critical`)
-- the affected field
-- a targeted natural-language repair prompt
-- the exact Bright Data heal command
-
-It also returns machine-readable JSON so a scheduled job or dashboard can consume the result.
-
-```bash
-node src/health-monitor.js scrape-output.json
-```
-
-Exit code `2` means extraction drift was detected; `0` means the dataset is healthy.
-
-## Pulse Engine
-
-`src/nexus-radar.js` transforms recovered job data into a 0–100 hiring Pulse Score:
-
-| Signal | Weight | Meaning |
-|---|---:|---|
-| **AI Density** | 60% | Share of postings with AI/ML-related technologies |
-| **Market Transparency** | 20% | Share of postings exposing compensation information |
-| **Freshness** | 20% | Share of postings from the last 30 days |
-
-The score is intentionally simple and explainable:
+Create the following Vercel environment variables:
 
 ```text
-Pulse = AI Density × 0.60
-      + Market Transparency × 0.20
-      + Freshness × 0.20
+BRIGHTDATA_API_KEY=<your Bright Data key>
+COLLECTOR_ID=<optional default collector>
+TARGET_URL=<optional default target>
+MAX_RETRIES=4
 ```
 
-Levels: **HIGH ≥ 70**, **MEDIUM ≥ 40**, **LOW < 40**.
+Never commit the real API key. `.env.example` contains placeholders only.
 
-## Reliability features
+## Judge demo script
 
-- Exponential backoff + jitter for retryable Bright Data/API failures.
-- Retry handling for rate limits and common transient HTTP failures.
-- Graceful handling of Bright Data response wrappers (`data`, `results`, `items`).
-- Missing-field detection across the complete schema.
-- Field-specific heal prompts instead of generic repair instructions.
-- Machine-readable health output for automation.
-- No API credentials stored in source code.
+Use a five-minute story:
 
-## Run locally
+1. Open **Scraper Studio**.
+2. Enter a permitted public target and a natural-language extraction schema.
+3. Run the collector and show the live activity log.
+4. Show the structured rows and health score.
+5. Introduce or demonstrate an extraction gap using a test/known drift case.
+6. Open **Self-Heal**, show the generated repair instruction, and approve it.
+7. Re-run the same collector and show recovered fields.
+8. Export the recovered dataset.
 
-Requires Node.js 18+ for native `fetch`.
-
-```bash
-export BRIGHTDATA_API_KEY="<your-key>"
-node src/nexus-radar.js
-```
-
-For the health monitor:
-
-```bash
-node src/health-monitor.js scrape-output.json
-```
+The key claim is not “we built another scraper.” It is **“we made extraction reliability observable and repairable.”**
 
 ## Repository structure
 
 ```text
 .
-├── index.html                 # standalone dashboard entry
+├── index.html
 ├── website/
-│   ├── index.html             # polished presentation dashboard
+│   ├── index.html        # scraper studio UI
 │   ├── styles.css
 │   ├── app.js
-│   ├── favicon.svg
-│   ├── robots.txt
-│   └── netlify.toml
+│   └── favicon.svg
+├── api/
+│   ├── _bright.js        # server-side Bright Data client
+│   ├── collector.js      # collector creation/progress
+│   ├── run.js            # trigger/result polling
+│   └── heal.js            # self-healing/approval
 ├── src/
-│   ├── nexus-radar.js         # collector client + Pulse Engine
-│   └── health-monitor.js      # extraction drift detector
-├── phase2_create.json         # collector creation evidence
-├── phase3_heal.json           # heal preview evidence
-└── .gitignore
+│   ├── nexus-radar.js    # collector client + Pulse engine
+│   └── health-monitor.js # extraction drift detector
+├── test/
+├── phase2_create.json    # collector creation evidence
+└── phase3_heal.json      # heal preview evidence
 ```
-
-## Hackathon differentiation
-
-**The product is not just a scraper.** The scraper is the data acquisition layer. The differentiator is the reliability loop that treats extraction quality as an observable system property and produces a repair instruction when that property degrades.
-
-### Demo story
-
-1. Show a healthy five-field extraction.
-2. Introduce a broken/missing field in a test payload.
-3. Show the Health Monitor detect the drift.
-4. Show the generated Bright Data heal prompt.
-5. Run/approve the repair in Scraper Studio.
-6. Re-run extraction and show the field recovered.
-7. Feed the recovered data into the Pulse Engine and dashboard.
-
-That sequence demonstrates the actual value of self-healing instead of merely describing it.
 
 ## Security
 
-**Never commit `BRIGHTDATA_API_KEY` or any other credential.** Configure secrets through the environment or deployment platform. Historical credential-looking values should not be treated as valid secrets; if a real credential was ever exposed, rotate it immediately.
+Never commit `BRIGHTDATA_API_KEY` or any other credential. Configure secrets through Vercel environment variables. If a real credential is ever exposed, rotate it immediately.
 
 ## License
 
