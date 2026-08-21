@@ -1,34 +1,35 @@
 # AI-Nexus Radar
 
-### Flexible self-healing web intelligence for the Into the Scrape-Verse hackathon
+### Flexible, reliability-first web intelligence for the Into the Scrape-Verse hackathon
 
 > **Describe what you want to extract. Run it against one URL or a batch. Validate the dataset. When extraction drifts, repair the same Bright Data collector instead of rebuilding the scraper.**
 
 [Live Demo](https://ai-nexus-radar.vercel.app/) · [GitHub](https://github.com/bhuvan0x/ai-nexus-radar)
 
-## What changed
+## The idea
 
-AI-Nexus Radar is no longer a YC-jobs-only dashboard. The website is a general scraper workspace built around Bright Data Scraper Studio:
+Traditional scrapers are brittle: a small layout change can silently turn valid-looking output into missing or incorrect fields.
+
+AI-Nexus Radar treats scraping as a monitored system instead of a one-shot script:
 
 ```text
-User describes target + schema
-          ↓
-Create/reuse Bright Data collector
-          ↓
-Run one URL or multiple URLs
-          ↓
-Structured result table + JSON/CSV export
-          ↓
-Health Sentinel
-   ┌──────┴──────┐
- healthy       drift
-   ↓             ↓
- product      plain-language
- output       Bright Data heal
-                 ↓
-             approve repair
-                 ↓
-             re-run + verify
+Public URL(s)
+    ↓
+Natural-language extraction schema
+    ↓
+Bright Data Scraper Studio collector
+    ↓
+Structured rows
+    ↓
+Reliability Sentinel
+    ↓
+Drift detected
+    ↓
+Targeted AI self-heal
+    ↓
+Human approval
+    ↓
+Verification run
 ```
 
 ## Product workflow
@@ -36,29 +37,28 @@ Health Sentinel
 1. **Target** — paste any permitted public HTTP(S) URL or a newline-separated batch.
 2. **Extraction intent** — describe the fields in plain language.
 3. **Schema** — edit field names/descriptions or add new fields.
-4. **Collector** — reuse an existing Bright Data collector or create one through the server-side API.
+4. **Collector** — reuse an existing Bright Data collector or create one through the server-side API when account capacity is available.
 5. **Run** — trigger the collector and poll the asynchronous Bright Data result.
 6. **Validate** — calculate field completeness, schema coverage and an extraction health score.
 7. **Export** — inspect table/JSON output and download CSV or JSON.
-8. **Self-heal** — describe the detected failure, trigger Bright Data's refactor flow, review the result, approve, then re-run.
+8. **Visualize** — open **Data Universe** to explore returned records as interactive nodes.
+9. **Self-heal** — describe the detected failure, trigger Bright Data's refactor flow, wait for the repair job, review it, approve it, then re-run.
+
+## Why the reliability layer matters
+
+A scraper can return HTTP-successful responses while still producing broken business data. AI-Nexus Radar therefore checks the extraction contract after the crawl:
+
+- requested fields must exist in the returned schema;
+- empty, null and empty-array values are counted per field;
+- a field is flagged when more than 30% of its values are missing;
+- the health score combines schema coverage and completeness;
+- a detected failure can generate a targeted repair prompt for the same collector.
+
+The **Simulate field drift** control is a deliberate demonstration tool: it removes values from a field so a judge can see the Sentinel detect a failure without requiring a live website layout change during the presentation.
 
 ## Bright Data integration
 
-The repository follows the same API workflow used by the Bright Data CLI for Scraper Studio:
-
-- collector template: `/dca/collector`
-- AI generation: `/dca/collectors/{collector}/automate_template`
-- generation progress: `/dca/collectors/{collector}/automate_template/progress`
-- single scrape trigger: `/dca/trigger_immediate`
-- single scrape result: `/dca/get_result`
-- batch execution: `/dca/trigger` + `/dca/dataset`
-- self-heal trigger: `/dca/collectors/{collector}/refactor_template`
-- self-heal progress: `/dca/collectors/{collector}/refactor_template/progress`
-- approval: `/dca/collectors/{collector}/resume_automation_job`
-
-The browser never receives `BRIGHTDATA_API_KEY`; Vercel serverless functions keep the credential server-side.
-
-## API surface
+The browser never receives `BRIGHTDATA_API_KEY`. Vercel serverless functions keep the credential server-side.
 
 | Endpoint | Purpose |
 |---|---|
@@ -70,21 +70,48 @@ The browser never receives `BRIGHTDATA_API_KEY`; Vercel serverless functions kee
 | `GET /api/heal?collectorId=...` | Read heal progress |
 | `PUT /api/heal` | Approve and save a repair |
 
-## Reliability
+### Trial/collector capacity
 
-The core reliability loop is deliberately observable rather than simulated:
+Creating a new Scraper Studio custom collector consumes account-level collector capacity. AI-Nexus Radar therefore keeps automatic collector creation opt-in. For a demo, prefer reusing an existing collector. If the Bright Data account has exhausted its allowance, the provider error is surfaced instead of pretending a collector was created.
 
-- retryable Bright Data failures are retried in the collector client;
-- result polling handles asynchronous jobs;
-- field-level empty/null rates are measured after every run;
-- missing schema fields are flagged;
-- a low health score creates a targeted repair prompt;
-- the same collector ID is preserved through repair;
-- the repaired collector can be run again for verification.
+## Judge demo — recommended 90-second story
+
+```text
+0–10s   Problem
+        “Web scrapers break when websites change.”
+
+10–25s  Build
+        URL → natural-language fields → existing collector → Run
+
+25–40s  Result
+        Structured rows → health score → Data Universe
+
+40–55s  Reliability
+        Run Audit → show healthy extraction
+
+55–70s  Failure
+        Simulate Field Drift → show DRIFT
+
+70–85s  Recovery
+        Trigger Self-Heal → wait → review → Approve
+
+85–90s  Payoff
+        “It didn't just scrape. It detected extraction failure and entered a repair loop.”
+```
+
+Use real Bright Data measurements in the final submission. Do **not** present synthetic demo data or simulated drift as a real-world benchmark.
+
+Recommended evidence to capture:
+
+- inputs;
+- records returned;
+- failed crawls;
+- success rate;
+- page loads;
+- runtime;
+- reliability score before/after repair.
 
 ## Local / Vercel configuration
-
-Create the following Vercel environment variables:
 
 ```text
 BRIGHTDATA_API_KEY=<your Bright Data key>
@@ -93,22 +120,7 @@ TARGET_URL=<optional default target>
 MAX_RETRIES=4
 ```
 
-Never commit the real API key. `.env.example` contains placeholders only.
-
-## Judge demo script
-
-Use a five-minute story:
-
-1. Open **Scraper Studio**.
-2. Enter a permitted public target and a natural-language extraction schema.
-3. Run the collector and show the live activity log.
-4. Show the structured rows and health score.
-5. Introduce or demonstrate an extraction gap using a test/known drift case.
-6. Open **Self-Heal**, show the generated repair instruction, and approve it.
-7. Re-run the same collector and show recovered fields.
-8. Export the recovered dataset.
-
-The key claim is not “we built another scraper.” It is **“we made extraction reliability observable and repairable.”**
+Never commit the real API key. Configure secrets through Vercel environment variables. If a credential is ever exposed, rotate it immediately.
 
 ## Repository structure
 
@@ -117,8 +129,9 @@ The key claim is not “we built another scraper.” It is **“we made extracti
 ├── index.html
 ├── website/
 │   ├── index.html        # scraper studio UI
-│   ├── styles.css
-│   ├── app.js
+│   ├── styles.css        # UI system + reliability visuals
+│   ├── app.js            # UI state, validation and API orchestration
+│   ├── visualize.html    # interactive Data Universe
 │   └── favicon.svg
 ├── api/
 │   ├── _bright.js        # server-side Bright Data client
@@ -126,16 +139,14 @@ The key claim is not “we built another scraper.” It is **“we made extracti
 │   ├── run.js            # trigger/result polling
 │   └── heal.js            # self-healing/approval
 ├── src/
-│   ├── nexus-radar.js    # collector client + Pulse engine
-│   └── health-monitor.js # extraction drift detector
-├── test/
-├── phase2_create.json    # collector creation evidence
-└── phase3_heal.json      # heal preview evidence
+│   ├── nexus-radar.js
+│   └── health-monitor.js
+└── test/
 ```
 
-## Security
+## Security and responsible scope
 
-Never commit `BRIGHTDATA_API_KEY` or any other credential. Configure secrets through Vercel environment variables. If a real credential is ever exposed, rotate it immediately.
+Use AI-Nexus Radar only for permitted public web data. Respect target-site terms, access policies, privacy requirements and applicable law. Never commit credentials or private data.
 
 ## License
 
