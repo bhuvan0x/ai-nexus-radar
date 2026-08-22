@@ -8,6 +8,7 @@
   },
   "scripts": {
     "health:test": "node --test test/health-monitor.test.js",
-    "test": "npm run health:test"
+    "test": "npm run health:test",
+    "check": "npm test && node --check src/reliability/engine.js && node --check src/health-monitor.js"
   }
 }
