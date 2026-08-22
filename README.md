@@ -1,107 +1,274 @@
 # AI-Nexus Radar
 
-### Flexible, reliability-first web intelligence for the Into the Scrape-Verse hackathon
+### Scrape anything public. Detect silent extraction failure. Repair the collector.
 
-> **Describe what you want to extract. Run it against one URL or a batch. Validate the dataset. When extraction drifts, repair the same Bright Data collector instead of rebuilding the scraper.**
+> **AI-Nexus Radar is a flexible, reliability-first scraping workspace built for the Into the Scrape-Verse hackathon. Describe the data you need, generate or reuse a Bright Data Scraper Studio collector, validate the structured output, detect drift, and send the same collector into a self-healing repair workflow.**
 
-[Live Demo](https://ai-nexus-radar.vercel.app/) · [GitHub](https://github.com/bhuvan0x/ai-nexus-radar)
+[Live Demo](https://ai-nexus-radar.vercel.app/) · [GitHub](https://github.com/bhuvan0x/ai-nexus-radar) · [Data Universe](https://ai-nexus-radar.vercel.app/website/visualize.html)
 
-## The idea
+**Creator:** Bhuvan Jatav · Student Developer · AI & Web Innovation
 
-Traditional scrapers are brittle: a small layout change can silently turn valid-looking output into missing or incorrect fields.
+---
 
-AI-Nexus Radar treats scraping as a monitored system instead of a one-shot script:
+## Why this exists
+
+Web scrapers often fail silently. A layout change can leave the HTTP request successful while the business data becomes empty, incomplete, or structurally wrong.
+
+AI-Nexus Radar treats extraction as a monitored system:
 
 ```text
 Public URL(s)
     ↓
-Natural-language extraction schema
+Natural-language extraction intent
+    ↓
+Flexible schema
     ↓
 Bright Data Scraper Studio collector
     ↓
-Structured rows
+Structured output
     ↓
 Reliability Sentinel
     ↓
-Drift detected
+Drift / missing data detected
     ↓
-Targeted AI self-heal
+Targeted self-heal
     ↓
 Human approval
     ↓
 Verification run
 ```
 
-## Product workflow
+---
 
-1. **Target** — paste any permitted public HTTP(S) URL or a newline-separated batch.
-2. **Extraction intent** — describe the fields in plain language.
-3. **Schema** — edit field names/descriptions or add new fields.
-4. **Collector** — reuse an existing Bright Data collector or create one through the server-side API when account capacity is available.
-5. **Run** — trigger the collector and poll the asynchronous Bright Data result.
-6. **Validate** — calculate field completeness, schema coverage and an extraction health score.
-7. **Export** — inspect table/JSON output and download CSV or JSON.
-8. **Visualize** — open **Data Universe** to explore returned records as interactive nodes.
-9. **Self-heal** — describe the detected failure, trigger Bright Data's refactor flow, wait for the repair job, review it, approve it, then re-run.
+# Hackathon judging map
 
-## Why the reliability layer matters
+The official hackathon evaluates six equally weighted criteria: **Potential Impact, Creativity & Innovation, Technical Excellence, Use of Scraper Studio, Reliability & Self-Healing, and Presentation**. citeturn151654search0
 
-A scraper can return HTTP-successful responses while still producing broken business data. AI-Nexus Radar therefore checks the extraction contract after the crawl:
+AI-Nexus Radar is designed to make each criterion visible in both the product and the repository.
 
-- requested fields must exist in the returned schema;
-- empty, null and empty-array values are counted per field;
-- a field is flagged when more than 30% of its values are missing;
-- the health score combines schema coverage and completeness;
-- a detected failure can generate a targeted repair prompt for the same collector.
+| Judging criterion | What the project demonstrates | Where to inspect it |
+|---|---|---|
+| **Potential Impact** | Converts unstable public-web extraction into reusable structured data with quality checks and recovery | Product workflow, Results, Data Universe |
+| **Creativity & Innovation** | Natural-language extraction intent + flexible schema + Reliability Sentinel + same-collector repair loop | Scraper Studio, Reliability, Self-Heal |
+| **Technical Excellence** | Server-side Bright Data client, async collector jobs, polling, schema validation, exports, tests, CI | `api/`, `src/`, `test/`, `.github/` |
+| **Use of Scraper Studio** | Bright Data is the core collection, execution, and self-healing platform rather than a decorative integration | `api/collector.js`, `api/run.js`, `api/heal.js` |
+| **Reliability & Self-Healing** | Field completeness, schema drift, row-count anomalies, repair prompts, approval, and re-verification | Reliability Sentinel + `src/reliability/engine.js` |
+| **Presentation** | Structured demo flow with readable output, visual exploration, reliability failure, and repair | Live Demo + `website/visualize.html` |
 
-The **Simulate field drift** control is a deliberate demonstration tool: it removes values from a field so a judge can see the Sentinel detect a failure without requiring a live website layout change during the presentation.
+The official page also says the demo is scored as hard as the code, so the README, product walkthrough, and demo should tell the same story. citeturn151654search0
 
-## Bright Data integration
+---
 
-The browser never receives `BRIGHTDATA_API_KEY`. Vercel serverless functions keep the credential server-side.
+# 1. Potential Impact
+
+### Problem
+
+A scraper that returns zero or partially populated fields can silently contaminate a downstream dashboard, research workflow, monitoring system, or dataset.
+
+### Solution
+
+AI-Nexus Radar adds a reliability layer after extraction instead of trusting HTTP success as proof that the data is healthy.
+
+The same workspace can be used for public product pages, listings, documentation, reviews, market-research sources, and other permitted public web data.
+
+### Output
+
+The collected records can feed:
+
+- a structured results table;
+- JSON or CSV exports;
+- the interactive **Data Universe**;
+- reliability monitoring;
+- a repair workflow for the same collector.
+
+---
+
+# 2. Creativity & Innovation
+
+The core idea is not “another scraper.” It is **scraping as a monitored, recoverable system**.
+
+### What is different
+
+**Natural-language intent**
+
+The user explains what each record should contain instead of starting from brittle selectors.
+
+**Flexible schema**
+
+Fields are user-defined rather than hardcoded to one website or one domain.
+
+**Reliability Sentinel**
+
+The system checks schema presence and value completeness after extraction.
+
+**Self-healing loop**
+
+A detected failure becomes a targeted repair request against the existing collector, followed by human review and re-verification.
+
+**Data Universe**
+
+Successful extraction is turned into an interactive visual dataset instead of ending at a plain table.
+
+---
+
+# 3. Technical Excellence
+
+The repository keeps provider access, API orchestration, reliability logic, UI state, and tests separated.
+
+```text
+Browser
+   │
+   ▼
+Vercel serverless API
+   │
+   ├── collector.js ── create / inspect collector
+   ├── run.js       ── trigger / poll extraction
+   └── heal.js      ── repair / approve
+          │
+          ▼
+   Bright Data Scraper Studio
+          │
+          ▼
+Structured result
+          │
+          ▼
+src/reliability/engine.js
+          │
+          ├── field completeness
+          ├── schema drift
+          ├── row-count anomalies
+          └── repair recommendations
+```
+
+### Code-quality practices
+
+- Bright Data credentials stay server-side.
+- `.env`, key files, certificates, and sensitive workspace files are ignored by Git.
+- Reliability logic is implemented in a reusable, schema-driven module.
+- The health monitor is a thin CLI layer over the reusable engine.
+- Automated tests cover healthy extraction, field drift, schema drift, row-count anomalies, and zero-row failure.
+- GitHub Actions provides automated quality checks for pushes and pull requests.
+
+### Quality commands
+
+```bash
+npm test
+npm run check
+```
+
+`npm run check` performs the repository's automated test and syntax checks.
+
+---
+
+# 4. Use of Bright Data Scraper Studio
+
+Bright Data is central to the product, not an add-on.
+
+```text
+User request
+    ↓
+Create or reuse collector
+    ↓
+Bright Data Scraper Studio
+    ↓
+Run collector
+    ↓
+Retrieve structured result
+    ↓
+Validate
+    ↓
+Self-heal same collector when required
+```
+
+### Server endpoints
 
 | Endpoint | Purpose |
 |---|---|
-| `POST /api/collector` | Create a Bright Data collector and start AI generation |
-| `GET /api/collector?collectorId=...` | Poll collector-generation progress |
-| `POST /api/run` | Trigger a collector for one URL |
-| `GET /api/run?responseId=...` | Poll scrape results |
-| `POST /api/heal` | Trigger self-healing for a collector |
-| `GET /api/heal?collectorId=...` | Read heal progress |
-| `PUT /api/heal` | Approve and save a repair |
+| `POST /api/collector` | Create a Scraper Studio collector and start generation |
+| `GET /api/collector?collectorId=...` | Read collector-generation progress |
+| `POST /api/run` | Trigger a collector for a target URL |
+| `GET /api/run?responseId=...` | Poll the asynchronous result |
+| `POST /api/heal` | Start a collector repair |
+| `GET /api/heal?collectorId=...` | Read repair progress |
+| `PUT /api/heal` | Approve/save the repair |
 
-### Trial/collector capacity
+The hackathon requires Bright Data Scraper Studio and permits coding-agent-driven operation; this project keeps Bright Data at the center of the execution path. citeturn151654search0turn151654search1
 
-Creating a new Scraper Studio custom collector consumes account-level collector capacity. AI-Nexus Radar therefore keeps automatic collector creation opt-in. For a demo, prefer reusing an existing collector. If the Bright Data account has exhausted its allowance, the provider error is surfaced instead of pretending a collector was created.
+---
 
-## Judge demo — recommended 90-second story
+# 5. Reliability & Self-Healing
+
+The reliability layer is intentionally explicit so the failure can be demonstrated and verified.
+
+### Detection
+
+The engine can detect:
+
+- required-field missing values;
+- schema drift;
+- zero-row failures;
+- abnormal row-count drops.
+
+By default, a required field is flagged when its missing-value ratio reaches **30%**.
+
+### Recovery loop
+
+```text
+Healthy extraction
+      ↓
+Reliability audit
+      ↓
+Drift detected
+      ↓
+Targeted repair prompt
+      ↓
+Bright Data self-heal
+      ↓
+Human review / approval
+      ↓
+Verification run
+```
+
+### Demonstration mode
+
+**Simulate field drift** intentionally removes values from a field so the failure state can be shown deterministically during a presentation. This is a demo mechanism, not a production benchmark.
+
+The repository also contains automated reliability tests, including field drift, schema drift, row-count anomalies, and zero-row failure.
+
+---
+
+# 6. Presentation
+
+### Recommended 90-second demo
 
 ```text
 0–10s   Problem
         “Web scrapers break when websites change.”
 
 10–25s  Build
-        URL → natural-language fields → existing collector → Run
+        URL → describe fields → flexible schema → Create & Run
 
 25–40s  Result
         Structured rows → health score → Data Universe
 
 40–55s  Reliability
-        Run Audit → show healthy extraction
+        Run Reliability Audit → show healthy output
 
 55–70s  Failure
         Simulate Field Drift → show DRIFT
 
 70–85s  Recovery
-        Trigger Self-Heal → wait → review → Approve
+        Trigger Self-Heal → review → Approve
 
 85–90s  Payoff
-        “It didn't just scrape. It detected extraction failure and entered a repair loop.”
+        “The scraper did not just collect data. It monitored extraction quality and entered a repair loop.”
 ```
 
-Use real Bright Data measurements in the final submission. Do **not** present synthetic demo data or simulated drift as a real-world benchmark.
+The hackathon submission requires a public repository, demo video, project description, selected track information, and details of how Scraper Studio was used. citeturn151654search0
 
-Recommended evidence to capture:
+### Evidence to capture
+
+Use **real Bright Data run results** wherever available:
 
 - inputs;
 - records returned;
@@ -109,45 +276,109 @@ Recommended evidence to capture:
 - success rate;
 - page loads;
 - runtime;
-- reliability score before/after repair.
+- health score before and after recovery.
 
-## Local / Vercel configuration
+Do not present the simulated drift scenario as a production benchmark.
+
+---
+
+# Clean Code / Spider-Sense
+
+The hackathon's **Best Clean Code** track is for code that is “readable, structured, and handled at the edges” — a repository a stranger could pick up and understand. citeturn151654search0
+
+AI-Nexus Radar is structured around that goal:
+
+```text
+api/
+  _bright.js          # shared Bright Data HTTP client
+  collector.js        # collector lifecycle
+  run.js              # extraction execution/result polling
+  heal.js             # repair lifecycle
+
+src/
+  reliability/
+    engine.js         # schema-driven reliability engine
+  health-monitor.js   # thin CLI wrapper around reliability logic
+
+website/
+  index.html          # scraper workspace
+  app.js              # browser orchestration
+  styles.css          # UI system
+  visualize.html      # interactive Data Universe
+
+test/
+  health-monitor.test.js
+
+.github/
+  workflows/
+    quality.yml       # automated repository checks
+```
+
+### Edge cases explicitly handled
+
+- missing API configuration;
+- invalid/non-HTTP URLs;
+- Bright Data provider errors;
+- collector-generation failures;
+- asynchronous jobs and polling timeouts;
+- empty result sets;
+- missing fields;
+- schema drift;
+- abnormal row counts.
+
+The objective is not just fewer lines of code. It is **clear boundaries, predictable behavior, and code that can be understood without knowing the original hackathon history**.
+
+---
+
+# Repository map
+
+```text
+.
+├── api/
+│   ├── _bright.js
+│   ├── collector.js
+│   ├── run.js
+│   ├── heal.js
+│   └── radar.js
+├── src/
+│   ├── reliability/
+│   │   └── engine.js
+│   ├── health-monitor.js
+│   └── nexus-radar.js
+├── test/
+│   └── health-monitor.test.js
+├── website/
+│   ├── index.html
+│   ├── app.js
+│   ├── styles.css
+│   ├── visualize.html
+│   └── favicon.svg
+├── .env.example
+├── .github/workflows/quality.yml
+├── .gitignore
+├── package.json
+└── README.md
+```
+
+---
+
+# Environment
 
 ```text
 BRIGHTDATA_API_KEY=<your Bright Data key>
-COLLECTOR_ID=<optional default collector>
+COLLECTOR_ID=<optional existing/default collector>
 TARGET_URL=<optional default target>
 MAX_RETRIES=4
 ```
 
-Never commit the real API key. Configure secrets through Vercel environment variables. If a credential is ever exposed, rotate it immediately.
+Keep real credentials in Vercel environment variables or another secret manager. Never commit the real API key.
 
-## Repository structure
+Use only permitted public web data and respect target-site terms, access controls, privacy requirements, and applicable law.
 
-```text
-.
-├── index.html
-├── website/
-│   ├── index.html        # scraper studio UI
-│   ├── styles.css        # UI system + reliability visuals
-│   ├── app.js            # UI state, validation and API orchestration
-│   ├── visualize.html    # interactive Data Universe
-│   └── favicon.svg
-├── api/
-│   ├── _bright.js        # server-side Bright Data client
-│   ├── collector.js      # collector creation/progress
-│   ├── run.js            # trigger/result polling
-│   └── heal.js            # self-healing/approval
-├── src/
-│   ├── nexus-radar.js
-│   └── health-monitor.js
-└── test/
-```
+---
 
-## Security and responsible scope
+# Built by
 
-Use AI-Nexus Radar only for permitted public web data. Respect target-site terms, access policies, privacy requirements and applicable law. Never commit credentials or private data.
+**Bhuvan Jatav** · Student Developer · AI & Web Innovation
 
-## License
-
-Built as a hackathon project for the *Into the Scrape-Verse* challenge.
+Built for **Into the Scrape-Verse 2026** with Bright Data Scraper Studio.
