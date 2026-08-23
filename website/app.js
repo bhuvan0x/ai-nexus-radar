@@ -53,7 +53,7 @@
 
   function getUrls() {
     return ($('urls')?.value || '')
-      .split(/\r?\n|,/) 
+      .split(/\r?\n|,/)
       .map((value) => value.trim())
       .filter(Boolean);
   }
@@ -64,6 +64,11 @@
       .filter((item) => item.key)
       .map((item) => `${item.key} — ${item.description}`)
       .join('; ');
+  }
+
+  function getCollectionDescription() {
+    const base = $('description')?.value.trim() || getSchemaDescription();
+    return `${base}\n\nPagination policy: follow the target site's normal pagination or next-page mechanism and collect all available pages until the source is exhausted. Do not impose an artificial page limit such as 10, 50, or 70 pages. Stop only when there is no next page, pagination is exhausted, or the source explicitly indicates completion.`;
   }
 
   function wantsNewCollector() {
@@ -291,10 +296,15 @@
   }
 
   async function createCollector(url, description) {
-    log('Creating a new Bright Data collector…');
+    const collectionDescription = getCollectionDescription();
+    log('Creating a new Bright Data collector with full-pagination collection…');
     const created = await api('/api/collector', {
       method: 'POST',
-      body: JSON.stringify({ url, description, name: `nexus-${Date.now()}` })
+      body: JSON.stringify({
+        url,
+        description: collectionDescription,
+        name: `nexus-${Date.now()}`
+      })
     });
 
     if (!created.collectorId) {
@@ -304,6 +314,7 @@
     state.collectorId = created.collectorId;
     if ($('collectorId')) $('collectorId').value = created.collectorId;
     log(`Collector created: ${created.collectorId}`);
+    log('Pagination policy: no artificial page cap; continue until the source is exhausted.');
     await waitCollector(created.collectorId);
     log('Collector generation finished.');
     return created.collectorId;
@@ -582,14 +593,14 @@
 
     $('exampleAmazon')?.addEventListener('click', () => {
       $('urls').value = 'https://books.toscrape.com/';
-      $('description').value = 'Extract one row per book with title, price, availability, rating, category, and product URL.';
-      log('Loaded e-commerce example.');
+      $('description').value = 'Extract one row per book with title, price, availability, rating, category, and product URL. Follow all available pagination until exhausted.';
+      log('Loaded e-commerce example with full-pagination collection.');
     });
 
     $('exampleDocs')?.addEventListener('click', () => {
       $('urls').value = 'https://example.com/docs';
-      $('description').value = 'Extract document title, section heading, summary, author and canonical URL.';
-      log('Loaded documentation example.');
+      $('description').value = 'Extract document title, section heading, summary, author and canonical URL. Follow all available pagination until exhausted.';
+      log('Loaded documentation example with full-pagination collection.');
     });
 
     $('clearUrls')?.addEventListener('click', () => {
@@ -656,7 +667,6 @@
       }
     });
 
-    // Navigation helpers for all section links.
     document.querySelectorAll('.navlinks a[href^="#"]').forEach((link) => {
       link.addEventListener('click', (event) => {
         const target = document.querySelector(link.getAttribute('href'));
