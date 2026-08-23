@@ -1,28 +1,16 @@
 const { request, rows } = require('./_bright');
 
-function isRealtimePageLimitError(error) {
-  const message = JSON.stringify(error?.details || '') + ' ' + String(error?.message || '');
-  return error?.status === 400 && /too_many_pages|realtime job limit|real-time job limit|exceeded.*pages|pages.*exceeded/i.test(message);
+function isBatchFallbackError(error) {
+  const code = String(error?.code || error?.details?.error_code || error?.details?.code || '').toLowerCase();
+  const message = String(error?.message || '');
+  return code === 'too_many_pages' || /too_many_pages|exceeded realtime job limit|more than 51 pages|batch job|real-time scraper|trigger_immediate/i.test(message);
 }
 
-async function triggerBatch(collectorId, url) {
-  const response = await request(
-    `/dca/trigger?collector=${encodeURIComponent(collectorId)}&queue_next=1`,
-    {
-      method: 'POST',
-      body: JSON.stringify([{ url }])
-    }
-  );
-
-  const responseId = response.response_id || response.responseId || response.id;
-  if (!responseId) {
-    throw new Error('Bright Data accepted the batch job but returned no response ID.');
-  }
-
-  return responseId;
+function responseIdFrom(payload) {
+  return payload?.response_id || payload?.responseId || payload?.id || payload?.job_id || payload?.jobId || '';
 }
 
-module.exports = async function (req, res) {
+module.exports = async function(req, res) {
   if (!process.env.BRIGHTDATA_API_KEY) {
     return res.status(503).json({ error: 'Bright Data is not configured.' });
   }
@@ -40,7 +28,6 @@ module.exports = async function (req, res) {
       } catch {
         return res.status(400).json({ error: 'Invalid URL.' });
       }
-
       if (!/^https?:$/.test(parsedUrl.protocol)) {
         return res.status(400).json({ error: 'Only HTTP(S) URLs are supported.' });
       }
@@ -48,49 +35,48 @@ module.exports = async function (req, res) {
       try {
         const result = await request(
           `/dca/trigger_immediate?collector=${encodeURIComponent(collectorId)}`,
-          {
-            method: 'POST',
-            body: JSON.stringify({ url })
-          }
+          { method: 'POST', body: JSON.stringify({ url }) }
         );
 
+        const responseId = responseIdFrom(result);
+        if (!responseId) {
+          throw new Error('Bright Data accepted the realtime request but returned no response ID.');
+        }
+
         return res.status(202).json({
-          responseId: result.response_id,
+          responseId,
           status: 'pending',
           mode: 'realtime',
           collectorId,
           url
         });
       } catch (error) {
-        // Bright Data's realtime collector has a 51-page execution limit.
-        // Large paginated jobs must be queued through the batch endpoint.
-        if (isRealtimePageLimitError(error)) {
-          const responseId = await triggerBatch(collectorId, url);
-          return res.status(202).json({
-            responseId,
-            status: 'pending',
-            mode: 'batch',
-            collectorId,
-            url,
-            message: 'Realtime page limit detected; switched automatically to batch mode.'
-          });
+        if (!isBatchFallbackError(error)) throw error;
+
+        console.warn('Realtime page limit reached; retrying collector in batch mode.', {
+          collectorId,
+          url,
+          code: error?.code || error?.details?.error_code
+        });
+
+        const batch = await request(
+          `/dca/trigger?collector=${encodeURIComponent(collectorId)}&queue_next=1`,
+          { method: 'POST', body: JSON.stringify([{ url }]) }
+        );
+
+        const responseId = responseIdFrom(batch);
+        if (!responseId) {
+          throw new Error('Bright Data accepted the batch job but returned no response ID.');
         }
 
-        // Preserve the older fallback for other Bright Data realtime/batch errors.
-        const message = String(error.message || '');
-        if (error.status === 400 && /batch job|real-time scraper|trigger_immediate/i.test(message)) {
-          const responseId = await triggerBatch(collectorId, url);
-          return res.status(202).json({
-            responseId,
-            status: 'pending',
-            mode: 'batch',
-            collectorId,
-            url,
-            message: 'Realtime execution was unavailable; switched to batch mode.'
-          });
-        }
-
-        throw error;
+        return res.status(202).json({
+          responseId,
+          status: 'pending',
+          mode: 'batch',
+          fallbackReason: 'realtime_page_limit',
+          collectorId,
+          url
+        });
       }
     }
 
@@ -122,6 +108,8 @@ module.exports = async function (req, res) {
     console.error(error);
     return res.status(error.status && error.status < 500 ? error.status : 502).json({
       error: error.message || 'Bright Data request failed.',
+      error_code: error.code || error.details?.error_code || undefined,
+      details: error.details || undefined,
       code: 'BRIGHTDATA_RUN_ERROR'
     });
   }
