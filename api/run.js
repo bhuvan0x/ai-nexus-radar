@@ -35,7 +35,7 @@ async function triggerBatch(collectorId, url) {
   }
 
   return {
-    responseId: collectionId,
+    responseId: `batch:${collectionId}`,
     collectionId,
     status: 'pending',
     mode: 'batch',
@@ -66,10 +66,9 @@ module.exports = async function(req, res) {
         return res.status(400).json({ error: 'Only HTTP(S) URLs are supported.' });
       }
 
-      // Prefer batch for large/paginated workloads; fall back only when the collector is realtime-only.
+      // Prefer batch for paginated workloads; fall back only when the collector is realtime-only.
       try {
-        const batch = await triggerBatch(collectorId, url);
-        return res.status(202).json(batch);
+        return res.status(202).json(await triggerBatch(collectorId, url));
       } catch (batchError) {
         if (!isBatchUnsupported(batchError)) throw batchError;
 
@@ -95,16 +94,19 @@ module.exports = async function(req, res) {
     }
 
     if (req.method === 'GET') {
-      const id = String(req.query?.responseId || req.query?.collectionId || '');
-      const mode = String(req.query?.mode || '').toLowerCase();
+      let id = String(req.query?.responseId || req.query?.collectionId || '');
       if (!id) return res.status(400).json({ error: 'responseId is required.' });
 
-      if (mode === 'batch' || id.startsWith('j_')) {
+      const isBatch = id.startsWith('batch:');
+      if (isBatch) id = id.slice('batch:'.length);
+
+      if (isBatch) {
         try {
           const result = await request(`/dca/dataset?id=${encodeURIComponent(id)}`);
           if (result?.status === 202 || result?.pending === true) {
             return res.status(200).json({ status: 'pending', mode: 'batch' });
           }
+
           const data = rows(result);
           const scrapeError = extractResultError(data);
           if (scrapeError) {
@@ -115,6 +117,7 @@ module.exports = async function(req, res) {
               code: 'BRIGHTDATA_RESULT_ERROR'
             });
           }
+
           return res.status(200).json({ status: 'done', mode: 'batch', data });
         } catch (error) {
           if (error.status === 202 || error.status === 404) {
