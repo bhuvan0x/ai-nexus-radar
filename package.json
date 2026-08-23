@@ -3,12 +3,11 @@
   "version": "1.0.0",
   "private": true,
   "description": "Self-healing web intelligence system powered by Bright Data Scraper Studio.",
-  "engines": {
-    "node": ">=18"
-  },
+  "engines": { "node": ">=18" },
   "scripts": {
     "health:test": "node --test test/health-monitor.test.js",
     "test": "npm run health:test",
-    "check": "npm test && node --check src/reliability/engine.js && node --check src/health-monitor.js"
+    "syntax": "node --check api/_bright.js && node --check api/collector.js && node --check api/heal.js && node --check api/radar.js && node --check api/run.js && node --check src/health-monitor.js && node --check src/nexus-radar.js && node --check src/reliability/engine.js && node --check test/health-monitor.test.js",
+    "check": "npm test && npm run syntax"
   }
 }
