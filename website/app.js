@@ -77,6 +77,31 @@
     return Boolean($('autoCreate')?.checked);
   }
 
+  function normalizeRows(payload) {
+    if (Array.isArray(payload)) return payload;
+    if (!payload || typeof payload !== 'object') return [];
+
+    const candidates = [
+      payload.data,
+      payload.results,
+      payload.items,
+      payload.rows,
+      payload.records,
+      payload.dataset,
+      payload.data?.data,
+      payload.data?.results,
+      payload.data?.items,
+      payload.data?.rows,
+      payload.data?.records
+    ];
+
+    for (const candidate of candidates) {
+      if (Array.isArray(candidate)) return candidate;
+    }
+
+    return [];
+  }
+
   function renderFields() {
     const container = $('fields');
     if (!container) return;
@@ -250,7 +275,8 @@
     }
 
     if (!response.ok) {
-      throw new Error(body.error || body.message || `Request failed (${response.status})`);
+      const detail = body?.error || body?.message || `Request failed (${response.status})`;
+      throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
     }
     return body;
   }
@@ -320,25 +346,37 @@
     return created.collectorId;
   }
 
-  async function pollResult(responseId) {
-    if (!responseId) throw new Error('Bright Data did not return a response ID.');
+  async function pollResult(runToken) {
+    if (!runToken) throw new Error('Bright Data did not return a run identifier.');
 
-    for (let attempt = 1; attempt <= 120; attempt += 1) {
-      const result = await api(`/api/run?responseId=${encodeURIComponent(responseId)}`);
+    const batch = String(runToken).startsWith('batch:');
+    const endpointBase = `/api/run?responseId=${encodeURIComponent(runToken)}`;
+
+    for (let attempt = 1; attempt <= 160; attempt += 1) {
+      const result = await api(endpointBase);
       const status = String(result.status || '').toLowerCase();
+
+      log(batch
+        ? `Batch dataset pending… (${attempt}/160)`
+        : `Scrape job pending… (${attempt}/160)`, attempt === 1 ? false : true);
+
       if (status === 'done' || status === 'completed' || status === 'success') {
-        const data = result.data;
-        if (Array.isArray(data)) return data;
-        return data?.data || data?.results || data?.items || data?.rows || data?.records || [];
+        const data = normalizeRows(result.data);
+        if (!data.length && result.data && typeof result.data === 'object') {
+          log('Bright Data job completed but returned an unexpected empty dataset wrapper.');
+        }
+        return data;
       }
+
       if (['failed', 'error', 'cancelled', 'canceled'].includes(status)) {
-        throw new Error(`Scrape job ${status}.`);
+        const details = result.error_code ? ` [${result.error_code}]` : '';
+        throw new Error(`${result.error || `Scrape job ${status}.`}${details}`);
       }
-      log(`Scrape job pending… (${attempt}/120)`);
-      await sleep(2500);
+
+      await sleep(batch ? 3500 : 2500);
     }
 
-    throw new Error(`Scrape timed out. Response ID: ${responseId}`);
+    throw new Error(`Scrape timed out. Run token: ${runToken}`);
   }
 
   async function runOne(collectorId, url) {
@@ -347,8 +385,10 @@
       method: 'POST',
       body: JSON.stringify({ collectorId, url })
     });
-    log(`Bright Data accepted job ${started.responseId || '(no response ID)'}`);
-    return pollResult(started.responseId);
+    const runToken = started.responseId || started.collectionId;
+    if (!runToken) throw new Error('Bright Data returned no run identifier.');
+    log(`Bright Data accepted ${started.mode || 'scrape'} job.`);
+    return pollResult(runToken);
   }
 
   async function runScraper() {
@@ -367,9 +407,7 @@
 
     try {
       if (state.mode === 'create') {
-        if (!newCollector) {
-          throw new Error('Select Auto-create new collector to use Create only mode.');
-        }
+        if (!newCollector) throw new Error('Select Auto-create new collector to use Create only mode.');
         collectorId = await createCollector(targets[0], description);
         setStatus('READY', true);
         toast(`Collector ${collectorId} created.`);
@@ -413,7 +451,7 @@
         }
       }
 
-      document.getElementById('results')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      $('results')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (error) {
       log(`ERROR · ${error.message}`);
       setStatus('ERROR');
@@ -441,15 +479,8 @@
       state.lastGoodRows = JSON.parse(JSON.stringify(state.rows));
     }
 
-    const target = state.fields
-      .map(([key]) => key.trim())
-      .find((key) => key && state.columns.includes(key)) || state.columns[0];
-
-    state.rows = state.rows.map((row, index) => ({
-      ...row,
-      [target]: index === 0 ? row[target] : null
-    }));
-
+    const target = state.fields.map(([key]) => key.trim()).find((key) => key && state.columns.includes(key)) || state.columns[0];
+    state.rows = state.rows.map((row, index) => ({ ...row, [target]: index === 0 ? row[target] : null }));
     renderRows(state.rows);
     const result = renderHealth(auditRows(state.rows), 'Simulated extraction drift');
     const check = result.checks.find((item) => item.key === target);
@@ -613,9 +644,7 @@
         document.querySelectorAll('.mode').forEach((item) => item.classList.remove('active'));
         button.classList.add('active');
         state.mode = button.dataset.mode || 'run';
-        if ($('runBtn')) {
-          $('runBtn').textContent = state.mode === 'create' ? '＋ Create collector' : '⌁ Create & run scraper';
-        }
+        if ($('runBtn')) $('runBtn').textContent = state.mode === 'create' ? '＋ Create collector' : '⌁ Create & run scraper';
         log(`Mode: ${state.mode}`);
       });
     });
