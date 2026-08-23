@@ -25,8 +25,6 @@ function extractResultError(data) {
 }
 
 async function triggerBatch(collectorId, url) {
-  // Do not request queueing explicitly. Trial collectors reject queue_next=1,
-  // while the batch trigger itself can still be used when supported.
   const result = await request(
     `/dca/trigger?collector=${encodeURIComponent(collectorId)}`,
     { method: 'POST', body: JSON.stringify([{ url }]) }
@@ -51,23 +49,44 @@ async function readBatchSnapshot(snapshotId) {
   try {
     const result = await request(`/dca/dataset?id=${encodeURIComponent(snapshotId)}`);
 
+    // Bright Data's documented final batch response is a JSON array. Any object
+    // carrying only a lifecycle status is still a poll state, including "ready".
     if (!Array.isArray(result)) {
-      const status = String(result?.status || '').toLowerCase();
-      if (['building', 'pending', 'queued', 'running', 'processing', 'in_progress', 'started'].includes(status) || !status) {
-        return { status: 'pending', mode: 'batch', snapshotId, upstreamStatus: result?.status || 'building' };
+      const status = String(result?.status || result?.state || '').toLowerCase();
+      const data = rows(result);
+
+      if (data.length) {
+        const scrapeError = extractResultError(data);
+        if (scrapeError) {
+          return {
+            status: 'error',
+            mode: 'batch',
+            snapshotId,
+            error: scrapeError.message,
+            error_code: scrapeError.error_code,
+            details: scrapeError.failures
+          };
+        }
+        return { status: 'done', mode: 'batch', snapshotId, data, rowCount: data.length, rawType: typeof result };
       }
+
       if (['failed', 'error', 'cancelled', 'canceled'].includes(status)) {
         return {
           status: 'error',
           mode: 'batch',
           snapshotId,
-          error: stringifyError(result?.error || result),
+          error: stringifyError(result?.error || result?.message || result),
           error_code: result?.error_code || 'BATCH_JOB_FAILED'
         };
       }
 
-      const data = rows(result);
-      return { status: 'done', mode: 'batch', snapshotId, data, rowCount: data.length, rawType: typeof result };
+      // No rows + lifecycle object means the snapshot is not ready to download yet.
+      return {
+        status: 'pending',
+        mode: 'batch',
+        snapshotId,
+        upstreamStatus: result?.status || result?.state || 'building'
+      };
     }
 
     const scrapeError = extractResultError(result);
@@ -91,8 +110,6 @@ async function readBatchSnapshot(snapshotId) {
       rawType: 'array'
     };
   } catch (error) {
-    // A just-created snapshot can briefly be unavailable. Keep this transient,
-    // but let the frontend's bounded poll loop decide when to stop.
     if ([404, 425, 429, 503].includes(error.status)) {
       return { status: 'pending', mode: 'batch', snapshotId, upstreamStatus: `HTTP_${error.status}` };
     }
@@ -154,22 +171,37 @@ module.exports = async function(req, res) {
 
       try {
         const result = await request(`/dca/get_result?response_id=${encodeURIComponent(token)}`);
-        if (result?.pending === true || /pending|running|processing|queued/i.test(String(result?.status || ''))) {
-          return res.status(200).json({ status: 'pending', mode: 'realtime' });
+        const data = rows(result);
+        const status = String(result?.status || result?.state || '').toLowerCase();
+
+        if (data.length) {
+          const scrapeError = extractResultError(data);
+          if (scrapeError) {
+            return res.status(502).json({
+              error: scrapeError.message,
+              error_code: scrapeError.error_code,
+              details: scrapeError.failures,
+              code: 'BRIGHTDATA_RESULT_ERROR'
+            });
+          }
+          return res.status(200).json({ status: 'done', mode: 'realtime', data, rowCount: data.length });
         }
 
-        const data = rows(result);
-        const scrapeError = extractResultError(data);
-        if (scrapeError) {
+        // Keep polling any lifecycle-only response. Do not turn an empty status
+        // envelope into a false successful 0-row dataset.
+        if (result?.pending === true || ['pending', 'running', 'processing', 'queued', 'in_progress', 'started', 'ready', 'building'].includes(status) || !status) {
+          return res.status(200).json({ status: 'pending', mode: 'realtime', upstreamStatus: result?.status || 'pending' });
+        }
+
+        if (['failed', 'error', 'cancelled', 'canceled'].includes(status)) {
           return res.status(502).json({
-            error: scrapeError.message,
-            error_code: scrapeError.error_code,
-            details: scrapeError.failures,
+            error: stringifyError(result?.error || result?.message || result?.status || 'Bright Data realtime job failed.'),
+            error_code: result?.error_code || 'REALTIME_JOB_FAILED',
             code: 'BRIGHTDATA_RESULT_ERROR'
           });
         }
 
-        return res.status(200).json({ status: 'done', mode: 'realtime', data, rowCount: data.length });
+        return res.status(200).json({ status: 'done', mode: 'realtime', data: [], rowCount: 0, upstreamStatus: result?.status || 'empty' });
       } catch (error) {
         if (error.status === 202) return res.status(200).json({ status: 'pending', mode: 'realtime' });
         if (error.status === 404) {
