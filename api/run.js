@@ -1,4 +1,4 @@
-const { request, rows } = require('./_bright');
+const { request, rows, stringifyError } = require('./_bright');
 
 function responseIdFrom(payload) {
   return payload?.collection_id || payload?.response_id || payload?.responseId || payload?.id || payload?.job_id || payload?.jobId || '';
@@ -17,7 +17,7 @@ function extractResultError(data) {
   if (!failures.length) return null;
   const first = failures[0];
   return {
-    message: typeof first.error === 'string' ? first.error : JSON.stringify(first.error || {}),
+    message: stringifyError(first.error) || 'Bright Data returned an input error.',
     error_code: first.error_code || 'SCRAPE_INPUT_ERROR',
     failures: failures.slice(0, 10)
   };
@@ -31,7 +31,7 @@ async function triggerBatch(collectorId, url) {
 
   const collectionId = responseIdFrom(result);
   if (!collectionId) {
-    throw new Error('Bright Data accepted the batch job but returned no collection ID.');
+    throw new Error(`Bright Data accepted the batch request but returned an unexpected payload: ${JSON.stringify(result)}`);
   }
 
   return {
@@ -44,6 +44,42 @@ async function triggerBatch(collectorId, url) {
   };
 }
 
+async function readBatchSnapshot(snapshotId) {
+  const result = await request(`/dca/dataset?id=${encodeURIComponent(snapshotId)}`);
+
+  // Bright Data returns {status:"building"} while the snapshot is running.
+  if (!Array.isArray(result)) {
+    const status = String(result?.status || '').toLowerCase();
+    if (status && status !== 'ready' && status !== 'completed' && status !== 'success') {
+      return { status: 'pending', mode: 'batch', snapshotId, upstreamStatus: result?.status || 'building' };
+    }
+
+    const data = rows(result);
+    return { status: 'done', mode: 'batch', snapshotId, data, rowCount: data.length, rawType: typeof result };
+  }
+
+  const scrapeError = extractResultError(result);
+  if (scrapeError) {
+    return {
+      status: 'error',
+      mode: 'batch',
+      snapshotId,
+      error: scrapeError.message,
+      error_code: scrapeError.error_code,
+      details: scrapeError.failures
+    };
+  }
+
+  return {
+    status: 'done',
+    mode: 'batch',
+    snapshotId,
+    data: result,
+    rowCount: result.length,
+    rawType: 'array'
+  };
+}
+
 module.exports = async function(req, res) {
   if (!process.env.BRIGHTDATA_API_KEY) {
     return res.status(503).json({ error: 'Bright Data is not configured.' });
@@ -52,21 +88,12 @@ module.exports = async function(req, res) {
   try {
     if (req.method === 'POST') {
       const { collectorId, url } = req.body || {};
-      if (!collectorId || !url) {
-        return res.status(400).json({ error: 'collectorId and url are required.' });
-      }
+      if (!collectorId || !url) return res.status(400).json({ error: 'collectorId and url are required.' });
 
       let parsedUrl;
-      try {
-        parsedUrl = new URL(url);
-      } catch {
-        return res.status(400).json({ error: 'Invalid URL.' });
-      }
-      if (!/^https?:$/.test(parsedUrl.protocol)) {
-        return res.status(400).json({ error: 'Only HTTP(S) URLs are supported.' });
-      }
+      try { parsedUrl = new URL(url); } catch { return res.status(400).json({ error: 'Invalid URL.' }); }
+      if (!/^https?:$/.test(parsedUrl.protocol)) return res.status(400).json({ error: 'Only HTTP(S) URLs are supported.' });
 
-      // Prefer batch for paginated workloads; fall back only when the collector is realtime-only.
       try {
         return res.status(202).json(await triggerBatch(collectorId, url));
       } catch (batchError) {
@@ -76,82 +103,43 @@ module.exports = async function(req, res) {
           `/dca/trigger_immediate?collector=${encodeURIComponent(collectorId)}`,
           { method: 'POST', body: JSON.stringify({ url }) }
         );
-
         const responseId = responseIdFrom(realtime);
-        if (!responseId) {
-          throw new Error('Bright Data accepted the realtime request but returned no response ID.');
-        }
-
-        return res.status(202).json({
-          responseId,
-          status: 'pending',
-          mode: 'realtime',
-          fallbackReason: 'batch_unsupported',
-          collectorId,
-          url
-        });
+        if (!responseId) throw new Error('Bright Data accepted the realtime request but returned no response ID.');
+        return res.status(202).json({ responseId, status: 'pending', mode: 'realtime', fallbackReason: 'batch_unsupported', collectorId, url });
       }
     }
 
     if (req.method === 'GET') {
-      let id = String(req.query?.responseId || req.query?.collectionId || '');
-      if (!id) return res.status(400).json({ error: 'responseId is required.' });
+      const token = String(req.query?.responseId || req.query?.collectionId || '');
+      if (!token) return res.status(400).json({ error: 'responseId is required.' });
 
-      const isBatch = id.startsWith('batch:');
-      if (isBatch) id = id.slice('batch:'.length);
-
-      if (isBatch) {
-        try {
-          const result = await request(`/dca/dataset?id=${encodeURIComponent(id)}`);
-          if (result?.status === 202 || result?.pending === true) {
-            return res.status(200).json({ status: 'pending', mode: 'batch' });
-          }
-
-          const data = rows(result);
-          const scrapeError = extractResultError(data);
-          if (scrapeError) {
-            return res.status(502).json({
-              error: scrapeError.message,
-              error_code: scrapeError.error_code,
-              details: scrapeError.failures,
-              code: 'BRIGHTDATA_RESULT_ERROR'
-            });
-          }
-
-          return res.status(200).json({ status: 'done', mode: 'batch', data });
-        } catch (error) {
-          if (error.status === 202 || error.status === 404) {
-            return res.status(200).json({ status: 'pending', mode: 'batch' });
-          }
-          throw error;
-        }
-      }
-
-      try {
-        const result = await request(`/dca/get_result?response_id=${encodeURIComponent(id)}`);
-        if (
-          result?.pending === true ||
-          /pending|running|processing|queued/i.test(String(result?.status || ''))
-        ) {
-          return res.status(200).json({ status: 'pending', mode: 'realtime' });
-        }
-
-        const data = rows(result);
-        const scrapeError = extractResultError(data);
-        if (scrapeError) {
+      if (token.startsWith('batch:')) {
+        const snapshotId = token.slice('batch:'.length);
+        const snapshot = await readBatchSnapshot(snapshotId);
+        if (snapshot.status === 'error') {
           return res.status(502).json({
-            error: scrapeError.message,
-            error_code: scrapeError.error_code,
-            details: scrapeError.failures,
+            error: snapshot.error,
+            error_code: snapshot.error_code,
+            details: snapshot.details,
             code: 'BRIGHTDATA_RESULT_ERROR'
           });
         }
+        return res.status(200).json(snapshot);
+      }
 
-        return res.status(200).json({ status: 'done', mode: 'realtime', data });
-      } catch (error) {
-        if (error.status === 202 || error.status === 404) {
+      try {
+        const result = await request(`/dca/get_result?response_id=${encodeURIComponent(token)}`);
+        if (result?.pending === true || /pending|running|processing|queued/i.test(String(result?.status || ''))) {
           return res.status(200).json({ status: 'pending', mode: 'realtime' });
         }
+        const data = rows(result);
+        const scrapeError = extractResultError(data);
+        if (scrapeError) {
+          return res.status(502).json({ error: scrapeError.message, error_code: scrapeError.error_code, details: scrapeError.failures, code: 'BRIGHTDATA_RESULT_ERROR' });
+        }
+        return res.status(200).json({ status: 'done', mode: 'realtime', data, rowCount: data.length });
+      } catch (error) {
+        if (error.status === 202 || error.status === 404) return res.status(200).json({ status: 'pending', mode: 'realtime' });
         throw error;
       }
     }
@@ -161,7 +149,7 @@ module.exports = async function(req, res) {
   } catch (error) {
     console.error(error);
     return res.status(error.status && error.status < 500 ? error.status : 502).json({
-      error: error.message || 'Bright Data request failed.',
+      error: stringifyError(error) || 'Bright Data request failed.',
       error_code: error.code || error.details?.error_code || undefined,
       details: error.details || undefined,
       code: 'BRIGHTDATA_RUN_ERROR'
