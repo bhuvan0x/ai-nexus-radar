@@ -1,7 +1,15 @@
-const { request, rows, stringifyError } = require('./_bright');
+const { request, stringifyError } = require('./_bright');
 
 function responseIdFrom(payload) {
   return payload?.response_id || payload?.responseId || payload?.id || payload?.job_id || payload?.jobId || '';
+}
+
+function isLifecycleObject(payload) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return false;
+  const keys = Object.keys(payload);
+  if (!keys.length) return true;
+  const lifecycleKeys = new Set(['status', 'state', 'pending', 'message', 'error', 'error_code', 'code']);
+  return keys.every((key) => lifecycleKeys.has(key));
 }
 
 function normalizeRows(payload) {
@@ -21,7 +29,6 @@ function normalizeRows(payload) {
     payload.data?.items,
     payload.data?.rows,
     payload.data?.records,
-    payload.data?.dataset,
     payload.result?.data,
     payload.result?.results
   ];
@@ -30,7 +37,9 @@ function normalizeRows(payload) {
     if (Array.isArray(candidate)) return candidate;
   }
 
-  return rows(payload);
+  // Realtime Scraper Studio results can be a single row object.
+  // Preserve it instead of silently converting it to an empty dataset.
+  return isLifecycleObject(payload) ? [] : [payload];
 }
 
 function resultFailure(payload) {
@@ -78,8 +87,6 @@ async function readResult(responseId) {
     return { status: 'pending', data: [] };
   }
 
-  // Keep polling for lifecycle-only payloads instead of declaring false success.
-  if (!status) return { status: 'pending', data: [] };
   if (['failed', 'error', 'cancelled', 'canceled'].includes(status)) {
     throw new Error(stringifyError(payload?.error || payload?.message || payload?.status) || 'Bright Data scraper failed.');
   }
